@@ -1,0 +1,35 @@
+name: Notify PR Ready
+
+on:
+  workflow_run:
+    workflows: ["PR Checks"]
+    types: [completed]
+
+jobs:
+  notify:
+    name: Send Notification
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get PR info
+        id: info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.workflow_run.pull_requests[0].number }}
+          PR_TITLE=$(gh pr view $PR_NUMBER --repo ${{ github.repository }} --json title -q .title)
+          PR_URL=$(gh pr view $PR_NUMBER --repo ${{ github.repository }} --json url -q .url)
+          echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "title=$PR_TITLE" >> $GITHUB_OUTPUT
+          echo "url=$PR_URL" >> $GITHUB_OUTPUT
+
+      - name: Send ntfy notification
+        run: |
+          curl -s \
+            -H "Title: PR Ready to Merge" \
+            -H "Priority: high" \
+            -H "Tags: white_check_mark" \
+            -H "Click: ${{ steps.info.outputs.url }}" \
+            -d "PR #${{ steps.info.outputs.number }}: ${{ steps.info.outputs.title }} — all checks passed. Ready to review and merge." \
+            https://ntfy.sh/${{ secrets.NTFY_TOPIC }}

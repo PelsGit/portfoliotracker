@@ -1,0 +1,66 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cp .env.example .env
+          echo "POSTGRES_USER=test" >> .env
+          echo "POSTGRES_PASSWORD=test" >> .env
+          echo "POSTGRES_DB=portfolio_test" >> .env
+          echo "DATABASE_URL=postgresql://test:test@db:5432/portfolio_test" >> .env
+
+      - name: Start database
+        run: docker compose up -d db
+
+      - name: Wait for database
+        run: |
+          for i in {1..30}; do
+            docker compose exec -T db pg_isready -U test && break
+            sleep 1
+          done
+
+      - name: Run backend tests
+        run: docker compose run --rm backend pytest --cov=app --cov-report=term-missing
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run frontend tests
+        run: docker compose run --rm frontend npm run test
+
+      - name: Tear down
+        if: always()
+        run: docker compose down
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint backend (ruff)
+        run: docker compose run --rm backend ruff check app/
+
+      - name: Lint frontend (eslint)
+        run: docker compose run --rm frontend npm run lint
+
+      - name: Tear down
+        if: always()
+        run: docker compose down

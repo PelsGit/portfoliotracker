@@ -1,0 +1,64 @@
+name: Auto Fix on Failure
+
+on:
+  workflow_run:
+    workflows: ["PR Checks"]
+    types: [completed]
+
+jobs:
+  fix:
+    name: Trigger Claude Code Fix
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get branch and PR info
+        id: info
+        run: |
+          echo "branch=${{ github.event.workflow_run.head_branch }}" >> $GITHUB_OUTPUT
+          echo "pr=${{ github.event.workflow_run.pull_requests[0].number }}" >> $GITHUB_OUTPUT
+          echo "sha=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+
+      - name: Fetch CI failure logs
+        id: logs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_ID=${{ github.event.workflow_run.id }}
+          gh api repos/${{ github.repository }}/actions/runs/$RUN_ID/logs > ci_logs.zip || true
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+
+      - name: Trigger Claude Code fix on VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/portfolio-tracker
+
+            # Make sure we are on the right branch with latest code
+            git fetch origin
+            git checkout ${{ steps.info.outputs.branch }}
+            git pull origin ${{ steps.info.outputs.branch }}
+
+            # Run Claude Code in headless mode to investigate and fix
+            claude --dangerously-skip-permissions -p "
+              The CI pipeline failed for PR #${{ steps.info.outputs.pr }} on branch '${{ steps.info.outputs.branch }}'.
+
+              Your job:
+              1. Run the tests locally to reproduce the failure:
+                 docker compose run --rm backend pytest
+                 docker compose run --rm frontend npm run test
+              2. Read the error output carefully
+              3. Identify the root cause
+              4. Fix the code (NOT the tests)
+              5. Run the tests again to confirm they pass
+              6. Run the linter: docker compose run --rm backend ruff check app/
+              7. Commit the fix with message: 'fix: resolve CI failure on PR #${{ steps.info.outputs.pr }}'
+              8. Push to branch '${{ steps.info.outputs.branch }}'
+
+              Do NOT open a new PR. Do NOT merge. Do NOT modify tests to make them pass.
+              Fix the implementation only.
+            "
