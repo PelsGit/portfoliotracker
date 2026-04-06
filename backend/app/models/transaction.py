@@ -11,6 +11,7 @@ class Transaction(Base):
     isin: Mapped[str] = mapped_column(String(12), nullable=False)
     product_name: Mapped[str | None] = mapped_column(String(255))
     exchange: Mapped[str | None] = mapped_column(String(10))
+    local_currency: Mapped[str | None] = mapped_column(String(3))
     date: Mapped[str] = mapped_column(DateTime(timezone=True), nullable=False)
     quantity: Mapped[float] = mapped_column(Numeric(12, 4), nullable=False)
     price: Mapped[float | None] = mapped_column(Numeric(12, 4))

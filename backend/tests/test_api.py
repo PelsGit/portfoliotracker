@@ -17,7 +17,7 @@ def test_import_degiro_preview(client):
     data = response.json()
     assert data["count"] == 1
     assert len(data["transactions"]) == 1
-    assert data["transactions"][0]["isin"] == "NL0010273215"
+    assert data["transactions"][0]["isin"] == "US1234567890"
 
 
 def test_import_degiro_preview_invalid_extension(client):

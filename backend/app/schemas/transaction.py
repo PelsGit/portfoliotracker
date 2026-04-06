@@ -9,6 +9,7 @@ class TransactionOut(BaseModel):
     isin: str
     product_name: str | None = None
     exchange: str | None = None
+    local_currency: str | None = None
     date: datetime
     quantity: Decimal
     price: Decimal | None = None

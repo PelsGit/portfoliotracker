@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.transaction import ImportConfirmResponse, ImportPreviewResponse, TransactionOut
-from app.services.importer.degiro import import_degiro_transactions, parse_degiro_csv
+from app.services.importer.degiro import import_degiro_transactions, parse_account_csv
 from app.services.prices.yfinance_fetcher import fetch_prices_for_isins
 
 router = APIRouter()
@@ -16,7 +16,7 @@ async def import_degiro_preview(file: UploadFile):
 
     content = await file.read()
     try:
-        parsed = parse_degiro_csv(content)
+        parsed = parse_account_csv(content)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {e}") from e
 
@@ -35,7 +35,7 @@ async def import_degiro_confirm(
 
     content = await file.read()
     try:
-        parsed = parse_degiro_csv(content)
+        parsed = parse_account_csv(content)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {e}") from e
 
