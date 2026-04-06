@@ -9,6 +9,9 @@ jobs:
     name: Backend Tests
     runs-on: self-hosted
     steps:
+      - name: Fix workspace permissions
+        run: sudo chown -R $(id -u):$(id -g) . || true
+
       - uses: actions/checkout@v4
 
       - name: Create .env file
@@ -40,10 +43,13 @@ jobs:
     name: Frontend Tests
     runs-on: self-hosted
     steps:
+      - name: Fix workspace permissions
+        run: sudo chown -R $(id -u):$(id -g) . || true
+
       - uses: actions/checkout@v4
 
       - name: Run frontend tests
-        run: docker compose run --rm frontend npm run test
+        run: docker compose run --rm frontend-node npm run test
 
       - name: Tear down
         if: always()
@@ -53,13 +59,16 @@ jobs:
     name: Lint
     runs-on: self-hosted
     steps:
+      - name: Fix workspace permissions
+        run: sudo chown -R $(id -u):$(id -g) . || true
+
       - uses: actions/checkout@v4
 
       - name: Lint backend (ruff)
         run: docker compose run --rm backend ruff check app/
 
       - name: Lint frontend (eslint)
-        run: docker compose run --rm frontend npm run lint
+        run: docker compose run --rm frontend-node npm run lint
 
       - name: Tear down
         if: always()
