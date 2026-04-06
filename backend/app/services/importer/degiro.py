@@ -126,7 +126,7 @@ def parse_account_csv(file_content: bytes | str) -> list[dict]:
         costs_rows = [r for r in order_rows if _is_costs(r)]
 
         # Total costs in EUR for this order, split equally across fills
-        total_costs = sum(parse_dutch_number(r[COL_MUTATIE_AMT]) or Decimal(0) for r in costs_rows)
+        total_costs = sum((parse_dutch_number(r[COL_MUTATIE_AMT]) or Decimal(0) for r in costs_rows), Decimal(0))
         cost_per_fill = (total_costs / len(trade_rows)).quantize(Decimal("0.01")) if trade_rows else Decimal(0)
 
         # FX rate: use the first row that has one (same rate for all fills in an order)
