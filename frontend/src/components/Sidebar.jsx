@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 
 const navItems = [
   { path: '/', label: 'Overview' },
+  { path: '/holdings', label: 'Holdings' },
   { path: '/import', label: 'Import CSV' },
 ];
 
