@@ -1,0 +1,37 @@
+:root {
+  --bg-page: #0f1117;
+  --bg-card: #161b27;
+  --bg-sidebar: #161b27;
+  --border-card: 0.5px solid rgba(255, 255, 255, 0.08);
+  --text-primary: #e2e8f0;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --accent-blue: #6c8cff;
+  --positive: #34d399;
+  --negative: #f87171;
+  --positive-bg: #064e3b;
+  --negative-bg: #450a0a;
+  --spacing: 8px;
+  --radius: 8px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
