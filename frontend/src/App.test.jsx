@@ -1,7 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import App from './App';
+
+vi.mock('./api/client', () => ({
+  default: {
+    get: () => Promise.resolve({ data: [] }),
+  },
+}));
 
 describe('App', () => {
   it('renders the sidebar with navigation', () => {
@@ -12,6 +18,7 @@ describe('App', () => {
     );
     expect(screen.getByText('Portfolio Tracker')).toBeInTheDocument();
     expect(screen.getByText('Overview')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Holdings' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Import CSV' })).toBeInTheDocument();
   });
 
