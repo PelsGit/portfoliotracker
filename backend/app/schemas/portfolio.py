@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel
@@ -26,3 +26,18 @@ class PortfolioSummaryOut(BaseModel):
     total_return_pct: Decimal | None = None
     holdings_count: int
     last_import_date: datetime | None = None
+
+
+class PortfolioValuePoint(BaseModel):
+    date: date
+    value: Decimal
+
+
+class PerformanceOut(BaseModel):
+    time_series: list[PortfolioValuePoint]
+    total_return_eur: Decimal | None = None
+    total_return_pct: Decimal | None = None
+    twr: Decimal | None = None
+    twr_cumulative: Decimal | None = None
+    irr: Decimal | None = None
+    max_drawdown: Decimal | None = None
