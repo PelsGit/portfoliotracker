@@ -35,8 +35,8 @@ class PortfolioValuePoint(BaseModel):
 
 class BreakdownItem(BaseModel):
     name: str
-    value: Decimal
-    weight: Decimal
+    value: float
+    weight: float
     holdings_count: int
 
 
