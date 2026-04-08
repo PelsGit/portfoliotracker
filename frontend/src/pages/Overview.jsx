@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
+import DonutChart from '../components/DonutChart';
 import HoldingsTable from '../components/HoldingsTable';
+import HorizontalBarChart from '../components/HorizontalBarChart';
 import MetricCard from '../components/MetricCard';
+import TopHoldingsList from '../components/TopHoldingsList';
 import { formatCurrency, formatPercent } from '../utils/format';
 
 export default function Overview() {
@@ -10,6 +13,7 @@ export default function Overview() {
   const [holdings, setHoldings] = useState([]);
   const [summary, setSummary] = useState(null);
   const [perf, setPerf] = useState(null);
+  const [breakdown, setBreakdown] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,11 +21,13 @@ export default function Overview() {
       api.get('/api/portfolio/holdings'),
       api.get('/api/portfolio/summary'),
       api.get('/api/portfolio/performance?period=ALL'),
+      api.get('/api/portfolio/breakdown'),
     ])
-      .then(([holdingsRes, summaryRes, perfRes]) => {
+      .then(([holdingsRes, summaryRes, perfRes, breakdownRes]) => {
         setHoldings(holdingsRes.data);
         setSummary(summaryRes.data);
         setPerf(perfRes.data);
+        setBreakdown(breakdownRes.data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -113,6 +119,21 @@ export default function Overview() {
         />
       </div>
 
+      <div className="charts-row">
+        <div className="chart-card">
+          <h2 className="section-title">Sector</h2>
+          <DonutChart data={breakdown?.sector} size="small" />
+        </div>
+        <div className="chart-card">
+          <h2 className="section-title">Region</h2>
+          <HorizontalBarChart data={breakdown?.region} compact />
+        </div>
+        <div className="chart-card">
+          <h2 className="section-title">Top Holdings</h2>
+          <TopHoldingsList holdings={holdings} />
+        </div>
+      </div>
+
       <div className="holdings-section">
         <h2 className="section-title">Holdings</h2>
         <HoldingsTable holdings={holdings} compact />
@@ -159,6 +180,20 @@ export default function Overview() {
           color: var(--text-muted);
           font-weight: 400;
           margin-bottom: calc(var(--spacing) * 1.5);
+        }
+
+        .charts-row {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: calc(var(--spacing) * 2);
+          margin-bottom: calc(var(--spacing) * 3);
+        }
+
+        .chart-card {
+          background: var(--bg-card);
+          border: var(--border-card);
+          border-radius: var(--radius);
+          padding: calc(var(--spacing) * 3);
         }
 
         .holdings-section {

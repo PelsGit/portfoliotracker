@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.models.price import Price
+from app.models.security_info import SecurityInfo
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,44 @@ def _nearest_rate(rate_map: dict[date, float], d: date) -> float | None:
     return rate_map[min(rate_map)]
 
 
+def _upsert_security_info(db: Session, isin: str, ticker) -> None:
+    """Extract sector/country/asset_type from yfinance ticker.info and upsert."""
+    try:
+        info = ticker.info
+        sector = info.get("sector")
+        industry = info.get("industry")
+        country = info.get("country")
+        quote_type = info.get("quoteType")
+
+        asset_type_map = {"EQUITY": "Stock", "ETF": "ETF", "MUTUALFUND": "Fund"}
+        asset_type = asset_type_map.get(quote_type, quote_type)
+
+        stmt = pg_insert(SecurityInfo.__table__).values(
+            isin=isin,
+            sector=sector,
+            industry=industry,
+            country=country,
+            asset_type=asset_type,
+            fetched_at=datetime.now(timezone.utc),
+        )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["isin"],
+            set_={
+                "sector": sector,
+                "industry": industry,
+                "country": country,
+                "asset_type": asset_type,
+                "fetched_at": datetime.now(timezone.utc),
+            },
+        )
+        db.execute(stmt)
+        db.commit()
+        logger.info("Upserted security info for %s: sector=%s, country=%s, type=%s", isin, sector, country, asset_type)
+    except Exception:
+        logger.exception("Failed to fetch security info for %s", isin)
+        db.rollback()
+
+
 def fetch_prices_for_isins(db: Session, isins: list[str]) -> None:
     """
     Fetch price history for each ISIN and store prices normalised to EUR.
@@ -102,6 +141,7 @@ def fetch_prices_for_isins(db: Session, isins: list[str]) -> None:
             continue
         try:
             ticker = yf.Ticker(isin)
+            _upsert_security_info(db, isin, ticker)
             hist = ticker.history(period="max")
 
             if hist.empty:

@@ -33,6 +33,19 @@ class PortfolioValuePoint(BaseModel):
     value: Decimal
 
 
+class BreakdownItem(BaseModel):
+    name: str
+    value: Decimal
+    weight: Decimal
+    holdings_count: int
+
+
+class BreakdownOut(BaseModel):
+    sector: list[BreakdownItem]
+    region: list[BreakdownItem]
+    asset_type: list[BreakdownItem]
+
+
 class PerformanceOut(BaseModel):
     time_series: list[PortfolioValuePoint]
     total_return_eur: Decimal | None = None

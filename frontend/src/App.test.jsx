@@ -19,6 +19,7 @@ describe('App', () => {
     expect(screen.getByText('Portfolio Tracker')).toBeInTheDocument();
     expect(screen.getByText('Overview')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Holdings' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Breakdown' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Performance' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Import CSV' })).toBeInTheDocument();
   });
