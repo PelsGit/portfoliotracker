@@ -65,7 +65,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Lint backend (ruff)
-        run: docker compose run --rm backend ruff check app/
+        run: docker compose run --rm --no-deps backend ruff check app/
 
       - name: Lint frontend (eslint)
         run: docker compose run --rm frontend-node npm run lint
