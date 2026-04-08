@@ -32,6 +32,11 @@ vi.mock('../api/client', () => ({
           },
         });
       }
+      if (url === '/api/portfolio/breakdown') {
+        return Promise.resolve({
+          data: { sector: [], region: [], asset_type: [] },
+        });
+      }
       return Promise.reject(new Error('not found'));
     },
   },

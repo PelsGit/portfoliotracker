@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /home/admin01/projects/portfoliotracker && docker compose up --build -d 2>&1 | tail -5",
+            "timeout": 120,
+            "statusMessage": "Starting Docker stack..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git push*)",
+            "command": "cd /home/admin01/projects/portfoliotracker && docker compose up --build -d 2>&1 | tail -5",
+            "timeout": 120,
+            "statusMessage": "Rebuilding and restarting Docker stack..."
+          }
+        ]
+      }
+    ]
+  }
+}
