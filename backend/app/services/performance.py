@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.models.price import Price
 from app.models.transaction import Transaction
 from app.schemas.portfolio import PerformanceOut, PortfolioValuePoint
-from app.services.prices.yfinance_fetcher import FX_ISIN
 
 
 def _to_decimal(value) -> Decimal:
@@ -37,19 +36,10 @@ def _build_time_series(
 
     isins = list({t.isin for t in transactions})
 
-    # Build local_currency map per ISIN from transactions
-    isin_currency: dict[str, str] = {}
-    for t in transactions:
-        if t.isin not in isin_currency and t.local_currency:
-            isin_currency[t.isin] = t.local_currency
-
+    # Prices are stored normalised to EUR by the fetcher — no FX conversion needed here
     prices = (
         db.query(Price)
-        .filter(
-            Price.isin.in_(isins + [FX_ISIN]),
-            Price.date >= start_date,
-            Price.date <= end_date,
-        )
+        .filter(Price.isin.in_(isins), Price.date >= start_date, Price.date <= end_date)
         .order_by(Price.date)
         .all()
     )
@@ -65,7 +55,6 @@ def _build_time_series(
     txn_idx = 0
     shares_held: dict[str, Decimal] = {}
     last_known_price: dict[str, Decimal] = {}
-    last_known_eurusd: Decimal | None = None
     series = []
 
     for d in calendar:
@@ -83,13 +72,7 @@ def _build_time_series(
 
         day_prices = price_map.get(d, {})
         for isin in day_prices:
-            if isin != FX_ISIN:
-                last_known_price[isin] = day_prices[isin]
-
-        if FX_ISIN in day_prices:
-            last_known_eurusd = day_prices[FX_ISIN]
-
-        eurusd = last_known_eurusd
+            last_known_price[isin] = day_prices[isin]
 
         portfolio_value = Decimal(0)
         for isin, shares in shares_held.items():
@@ -97,8 +80,6 @@ def _build_time_series(
                 continue
             price = day_prices.get(isin) or last_known_price.get(isin)
             if price is not None:
-                if isin_currency.get(isin) == "USD" and eurusd:
-                    price = price / eurusd
                 portfolio_value += shares * price
 
         series.append(PortfolioValuePoint(date=d, value=portfolio_value))
