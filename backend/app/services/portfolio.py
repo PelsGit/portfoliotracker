@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from app.models.price import Price
 from app.models.transaction import Transaction
 from app.schemas.portfolio import HoldingOut, PortfolioSummaryOut
-from app.services.prices.yfinance_fetcher import FX_ISIN
 
 
 def _to_decimal(value) -> Decimal:
@@ -39,9 +38,6 @@ def get_holdings(db: Session) -> list[HoldingOut]:
     )
     price_map = {row.isin: row.close_price for row in latest_prices}
 
-    eurusd_raw = price_map.get(FX_ISIN)
-    eurusd_rate = _to_decimal(eurusd_raw) if eurusd_raw is not None else None
-
     holdings = []
     for isin, txns in by_isin.items():
         net_shares = sum(_to_decimal(t.quantity) for t in txns)
@@ -56,18 +52,9 @@ def get_holdings(db: Session) -> list[HoldingOut]:
 
         cost_basis = avg_cost * net_shares
 
+        # Prices are stored normalised to EUR by the fetcher
         raw_price = price_map.get(isin)
-        current_price_local = _to_decimal(raw_price) if raw_price is not None else None
-
-        # Convert local price to EUR if stock is priced in USD
-        local_currency = txns[0].local_currency if txns else None
-        if current_price_local is not None:
-            if local_currency == "USD" and eurusd_rate:
-                current_price = current_price_local / eurusd_rate
-            else:
-                current_price = current_price_local
-        else:
-            current_price = None
+        current_price = _to_decimal(raw_price) if raw_price is not None else None
 
         if current_price is not None:
             value = net_shares * current_price

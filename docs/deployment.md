@@ -22,31 +22,50 @@ Rules:
 
 ## Secrets Management
 
-Never commit secrets. Use `.env` files which are gitignored.
+Never commit secrets. Use a `.env` file in the project root (gitignored).
+
+Create it manually before running the stack:
 
 ```bash
-# Copy the template and fill in your values
-cp .env.example .env
+touch .env
 ```
 
-`.env.example` is committed and documents all required variables with placeholder values.
+### Required variables
 
-Required variables:
-```
-POSTGRES_USER=your_db_user
-POSTGRES_PASSWORD=your_db_password
+```dotenv
+# PostgreSQL credentials — used by both the db and backend containers
+POSTGRES_USER=portfolio_user
+POSTGRES_PASSWORD=changeme
 POSTGRES_DB=portfolio
-DATABASE_URL=postgresql://user:pass@db:5432/portfolio
-CORS_ORIGINS=http://localhost:3000
-VITE_API_URL=http://localhost:8000
+
+# Full connection string for SQLAlchemy (must match the credentials above)
+# Host is always "db" — the Docker Compose service name
+DATABASE_URL=postgresql://portfolio_user:changeme@db:5432/portfolio
+
+# Allowed origins for the FastAPI CORS middleware
+# On the VM use the LAN IP so your laptop can reach the API
+CORS_ORIGINS=http://192.168.2.178:3000
+
+# URL the Vite frontend uses to reach the backend API
+# Must be the VM's LAN IP — localhost would break calls from your laptop
+VITE_API_URL=http://192.168.2.178:8000
 ```
+
+| Variable | Used by | Purpose |
+|---|---|---|
+| `POSTGRES_USER` | db, backend | Database username |
+| `POSTGRES_PASSWORD` | db, backend | Database password |
+| `POSTGRES_DB` | db, backend | Database name |
+| `DATABASE_URL` | backend | SQLAlchemy connection string |
+| `CORS_ORIGINS` | backend | Allowed browser origins for CORS |
+| `VITE_API_URL` | frontend (build) | Base URL baked into the frontend bundle |
 
 ## Local Development (Laptop)
 
 ```bash
 git clone https://github.com/rutgerpels/<repo-name>
 cd portfolio-tracker
-cp .env.example .env        # fill in your values
+# Create .env with the variables documented in Secrets Management above
 docker compose up --build
 ```
 

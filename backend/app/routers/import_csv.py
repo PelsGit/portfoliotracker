@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.transaction import ImportConfirmResponse, ImportPreviewResponse, TransactionOut
 from app.services.importer.degiro import import_degiro_transactions, parse_account_csv
-from app.services.prices.yfinance_fetcher import fetch_eurusd_rate, fetch_prices_for_isins
+from app.services.prices.yfinance_fetcher import fetch_prices_for_isins
 
 router = APIRouter()
 
@@ -44,7 +44,6 @@ async def import_degiro_confirm(
     isins = list({row["isin"] for row in parsed})
     if isins:
         background_tasks.add_task(fetch_prices_for_isins, db, isins)
-        background_tasks.add_task(fetch_eurusd_rate, db)
 
     transactions = [TransactionOut.model_validate(txn) for txn in db_transactions]
     return ImportConfirmResponse(imported=imported, skipped=skipped, transactions=transactions)
