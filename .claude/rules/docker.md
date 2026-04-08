@@ -37,3 +37,14 @@ docker compose exec frontend npm run test    # run frontend tests
 - Always add a `healthcheck` to the db service so backend waits for it
 - Use named volumes for PostgreSQL data persistence
 - NEVER run `docker compose down -v` in production — it deletes the database
+
+## After completing any task
+
+After finishing a task, check if the stack is running:
+```bash
+docker compose ps
+```
+If any of `backend`, `frontend`, or `db` are not running, start the stack:
+```bash
+docker compose up --build -d
+```
