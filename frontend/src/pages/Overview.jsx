@@ -15,23 +15,52 @@ export default function Overview() {
   const [perf, setPerf] = useState(null);
   const [breakdown, setBreakdown] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(null);
 
-  useEffect(() => {
+  const fetchDashboard = () =>
     Promise.all([
       api.get('/api/portfolio/holdings'),
       api.get('/api/portfolio/summary'),
       api.get('/api/portfolio/performance?period=ALL'),
       api.get('/api/portfolio/breakdown'),
-    ])
-      .then(([holdingsRes, summaryRes, perfRes, breakdownRes]) => {
-        setHoldings(holdingsRes.data);
-        setSummary(summaryRes.data);
-        setPerf(perfRes.data);
-        setBreakdown(breakdownRes.data);
-      })
+    ]).then(([holdingsRes, summaryRes, perfRes, breakdownRes]) => {
+      setHoldings(holdingsRes.data);
+      setSummary(summaryRes.data);
+      setPerf(perfRes.data);
+      setBreakdown(breakdownRes.data);
+    });
+
+  useEffect(() => {
+    fetchDashboard()
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    api.get('/api/prices/status').then((res) => {
+      setLastRefresh(res.data.last_refresh);
+      setRefreshing(res.data.refreshing);
+    }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!refreshing) return;
+    const interval = setInterval(() => {
+      api.get('/api/prices/status').then((res) => {
+        if (!res.data.refreshing) {
+          setRefreshing(false);
+          setLastRefresh(res.data.last_refresh);
+          clearInterval(interval);
+          fetchDashboard().catch(() => {});
+        }
+      }).catch(() => {});
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [refreshing]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    api.post('/api/prices/refresh').catch(() => setRefreshing(false));
+  };
 
   if (loading) {
     return (
@@ -91,11 +120,25 @@ export default function Overview() {
     <div>
       <div className="overview-header">
         <h1 className="page-title">Portfolio Overview</h1>
-        {summary?.last_import_date && (
-          <span className="last-import">
-            Last import: {new Date(summary.last_import_date).toLocaleDateString('nl-NL')}
-          </span>
-        )}
+        <div className="header-actions">
+          {summary?.last_import_date && (
+            <span className="last-import">
+              Last import: {new Date(summary.last_import_date).toLocaleDateString('nl-NL')}
+            </span>
+          )}
+          {lastRefresh && (
+            <span className="last-import">
+              Prices updated: {new Date(lastRefresh).toLocaleString('nl-NL')}
+            </span>
+          )}
+          <button
+            className="btn-refresh"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Refreshing...' : 'Refresh Prices'}
+          </button>
+        </div>
       </div>
 
       <div className="metrics-grid metrics-grid--4">
@@ -143,6 +186,7 @@ export default function Overview() {
         .overview-header {
           display: flex;
           align-items: baseline;
+          justify-content: space-between;
           gap: calc(var(--spacing) * 2);
           margin-bottom: calc(var(--spacing) * 3);
         }
@@ -153,9 +197,36 @@ export default function Overview() {
           color: var(--text-primary);
         }
 
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: calc(var(--spacing) * 2);
+        }
+
         .last-import {
           font-size: 12px;
           color: var(--text-muted);
+        }
+
+        .btn-refresh {
+          background: transparent;
+          color: var(--accent-blue);
+          border: 1px solid var(--accent-blue);
+          border-radius: var(--radius);
+          padding: calc(var(--spacing) * 0.75) calc(var(--spacing) * 2);
+          font-size: 12px;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .btn-refresh:hover:not(:disabled) {
+          background: var(--accent-blue);
+          color: #fff;
+        }
+
+        .btn-refresh:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .loading-text {

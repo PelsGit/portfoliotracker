@@ -37,8 +37,14 @@ vi.mock('../api/client', () => ({
           data: { sector: [], region: [], asset_type: [] },
         });
       }
+      if (url === '/api/prices/status') {
+        return Promise.resolve({
+          data: { refreshing: false, last_refresh: null, securities_count: 0 },
+        });
+      }
       return Promise.reject(new Error('not found'));
     },
+    post: () => Promise.resolve({ data: { status: 'started', securities_count: 0 } }),
   },
 }));
 
