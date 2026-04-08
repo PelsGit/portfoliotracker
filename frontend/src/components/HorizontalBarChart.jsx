@@ -28,8 +28,8 @@ export default function HorizontalBarChart({ data, compact = false }) {
   const height = compact ? Math.max(data.length * 32, 120) : Math.max(data.length * 40, 160);
 
   return (
-    <div className="hbar-chart">
-      <ResponsiveContainer width="100%" height={height}>
+    <div className="hbar-chart" style={{ minHeight: height }}>
+      <ResponsiveContainer width="99%" height={height}>
         <BarChart data={data} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
           <XAxis type="number" hide />
           <YAxis

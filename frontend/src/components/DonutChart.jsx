@@ -41,8 +41,8 @@ export default function DonutChart({ data, size = 'large' }) {
   const height = size === 'large' ? 300 : 220;
 
   return (
-    <div className="donut-chart">
-      <ResponsiveContainer width="100%" height={height}>
+    <div className="donut-chart" style={{ minHeight: height }}>
+      <ResponsiveContainer width="99%" height={height}>
         <PieChart>
           <Pie
             data={data}
