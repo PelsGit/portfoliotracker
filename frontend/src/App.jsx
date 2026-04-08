@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import Holdings from './pages/Holdings';
 import ImportCsv from './pages/ImportCsv';
 import Overview from './pages/Overview';
+import Performance from './pages/Performance';
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Overview />} />
         <Route path="/holdings" element={<Holdings />} />
+        <Route path="/performance" element={<Performance />} />
         <Route path="/import" element={<ImportCsv />} />
       </Route>
     </Routes>

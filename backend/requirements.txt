@@ -5,8 +5,8 @@ alembic==1.14.0
 psycopg2-binary==2.9.10
 pydantic-settings==2.7.0
 python-multipart==0.0.18
-yfinance==0.2.51
-requests==2.32.3
+yfinance==0.2.66
+numpy-financial==1.0.0
 pytz==2024.2
 pytest==8.3.4
 pytest-cov==6.0.0

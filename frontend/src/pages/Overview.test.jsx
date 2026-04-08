@@ -21,6 +21,17 @@ vi.mock('../api/client', () => ({
           },
         });
       }
+      if (url === '/api/portfolio/performance?period=ALL') {
+        return Promise.resolve({
+          data: {
+            time_series: [],
+            twr: null,
+            twr_cumulative: null,
+            irr: null,
+            max_drawdown: null,
+          },
+        });
+      }
       return Promise.reject(new Error('not found'));
     },
   },

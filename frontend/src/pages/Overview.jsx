@@ -9,16 +9,19 @@ export default function Overview() {
   const navigate = useNavigate();
   const [holdings, setHoldings] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [perf, setPerf] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       api.get('/api/portfolio/holdings'),
       api.get('/api/portfolio/summary'),
+      api.get('/api/portfolio/performance?period=ALL'),
     ])
-      .then(([holdingsRes, summaryRes]) => {
+      .then(([holdingsRes, summaryRes, perfRes]) => {
         setHoldings(holdingsRes.data);
         setSummary(summaryRes.data);
+        setPerf(perfRes.data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -89,7 +92,7 @@ export default function Overview() {
         )}
       </div>
 
-      <div className="metrics-grid">
+      <div className="metrics-grid metrics-grid--4">
         <MetricCard
           label="Portfolio Value"
           value={formatCurrency(summary?.total_value)}
@@ -101,8 +104,12 @@ export default function Overview() {
           deltaType={returnType}
         />
         <MetricCard
-          label="Positions"
-          value={summary?.holdings_count ?? '—'}
+          label="TWR"
+          value={perf?.twr != null ? formatPercent(perf.twr) : '\u2014'}
+        />
+        <MetricCard
+          label="IRR"
+          value={perf?.irr != null ? formatPercent(perf.irr) : '\u2014'}
         />
       </div>
 
@@ -137,9 +144,12 @@ export default function Overview() {
 
         .metrics-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
           gap: calc(var(--spacing) * 2);
           margin-bottom: calc(var(--spacing) * 3);
+        }
+
+        .metrics-grid--4 {
+          grid-template-columns: repeat(4, 1fr);
         }
 
         .section-title {
