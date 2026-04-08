@@ -66,9 +66,9 @@ describe('Breakdown', () => {
         <Breakdown />
       </MemoryRouter>
     );
-    expect(await screen.findByText('Technology')).toBeInTheDocument();
-    expect(screen.getByText('Healthcare')).toBeInTheDocument();
-    expect(screen.getByText('North America')).toBeInTheDocument();
-    expect(screen.getByText('Stock')).toBeInTheDocument();
+    expect((await screen.findAllByText('Technology')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Healthcare').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('North America').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Stock').length).toBeGreaterThan(0);
   });
 });

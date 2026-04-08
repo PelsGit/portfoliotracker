@@ -1,4 +1,4 @@
-import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { Cell, Pie, PieChart, Tooltip } from 'recharts';
 import { formatCurrency, formatPercent } from '../utils/format';
 
 const COLORS = [
@@ -18,38 +18,25 @@ function CustomTooltip({ active, payload }) {
   );
 }
 
-function renderLegend({ payload }) {
-  return (
-    <ul className="donut-legend">
-      {payload.map((entry, i) => (
-        <li key={i} className="donut-legend-item">
-          <span className="donut-legend-dot" style={{ background: entry.color }} />
-          <span className="donut-legend-label">{entry.value}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export default function DonutChart({ data, size = 'large' }) {
   if (!data?.length) {
     return <p className="donut-empty">No data available</p>;
   }
 
-  const outerRadius = size === 'large' ? 120 : 80;
-  const innerRadius = size === 'large' ? 70 : 45;
-  const height = size === 'large' ? 300 : 220;
+  const outerRadius = size === 'large' ? 110 : 70;
+  const innerRadius = size === 'large' ? 62 : 38;
+  const chartSize = size === 'large' ? 260 : 180;
 
   return (
-    <div className="donut-chart" style={{ minHeight: height }}>
-      <ResponsiveContainer width="99%" height={height}>
-        <PieChart>
+    <div className="donut-wrap">
+      <div className="donut-chart-area">
+        <PieChart width={chartSize} height={chartSize}>
           <Pie
             data={data}
             dataKey="value"
             nameKey="name"
-            cx="50%"
-            cy="50%"
+            cx={chartSize / 2}
+            cy={chartSize / 2}
             innerRadius={innerRadius}
             outerRadius={outerRadius}
             paddingAngle={1}
@@ -60,13 +47,29 @@ export default function DonutChart({ data, size = 'large' }) {
             ))}
           </Pie>
           <Tooltip content={<CustomTooltip />} />
-          <Legend content={renderLegend} />
         </PieChart>
-      </ResponsiveContainer>
+      </div>
+
+      <ul className="donut-legend">
+        {data.map((entry, i) => (
+          <li key={i} className="donut-legend-item">
+            <span className="donut-legend-dot" style={{ background: COLORS[i % COLORS.length] }} />
+            <span className="donut-legend-label">{entry.name}</span>
+            <span className="donut-legend-weight">{formatPercent(entry.weight)}</span>
+          </li>
+        ))}
+      </ul>
 
       <style>{`
-        .donut-chart {
-          width: 100%;
+        .donut-wrap {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: calc(var(--spacing) * 2);
+        }
+
+        .donut-chart-area {
+          flex-shrink: 0;
         }
 
         .donut-empty {
@@ -104,9 +107,9 @@ export default function DonutChart({ data, size = 'large' }) {
         .donut-legend {
           list-style: none;
           display: flex;
-          flex-wrap: wrap;
-          gap: 8px 16px;
-          justify-content: center;
+          flex-direction: column;
+          gap: 6px;
+          width: 100%;
           padding: 0;
           margin: 0;
         }
@@ -114,9 +117,8 @@ export default function DonutChart({ data, size = 'large' }) {
         .donut-legend-item {
           display: flex;
           align-items: center;
-          gap: 6px;
-          font-size: 11px;
-          color: var(--text-secondary);
+          gap: 8px;
+          font-size: 12px;
         }
 
         .donut-legend-dot {
@@ -124,6 +126,16 @@ export default function DonutChart({ data, size = 'large' }) {
           height: 8px;
           border-radius: 50%;
           flex-shrink: 0;
+        }
+
+        .donut-legend-label {
+          color: var(--text-secondary);
+          flex: 1;
+        }
+
+        .donut-legend-weight {
+          color: var(--text-muted);
+          font-size: 11px;
         }
       `}</style>
     </div>
