@@ -92,6 +92,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
         industry = info.get("industry")
         country = info.get("country")
         quote_type = info.get("quoteType")
+        logo_url = info.get("logo_url") or None  # coerce empty string to None
 
         asset_type_map = {"EQUITY": "Stock", "ETF": "ETF", "MUTUALFUND": "Fund"}
         asset_type = asset_type_map.get(quote_type, quote_type)
@@ -102,6 +103,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
             industry=industry,
             country=country,
             asset_type=asset_type,
+            logo_url=logo_url,
             fetched_at=datetime.now(timezone.utc),
         )
         stmt = stmt.on_conflict_do_update(
@@ -111,6 +113,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
                 "industry": industry,
                 "country": country,
                 "asset_type": asset_type,
+                "logo_url": logo_url,
                 "fetched_at": datetime.now(timezone.utc),
             },
         )

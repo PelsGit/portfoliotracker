@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
+from app.models.cash_balance import CashBalance
 from app.models.price import Price
 from app.models.transaction import Transaction
 from app.services.portfolio import get_holdings, get_summary
@@ -187,3 +188,47 @@ def test_summary_endpoint(client, db_session):
     data = response.json()
     assert data["holdings_count"] == 1
     assert float(data["total_value"]) == 500.0
+
+
+def test_cash_row_in_holdings(db_session):
+    _add_buy(db_session, quantity=10, total=-456.55)
+    _add_price(db_session, close_price=50.0)
+    db_session.add(CashBalance(amount_eur=Decimal("240.00")))
+    db_session.commit()
+
+    holdings = get_holdings(db_session)
+    cash = next((h for h in holdings if h.is_cash), None)
+    assert cash is not None
+    assert cash.isin == "CASH"
+    assert cash.product_name == "Cash"
+    assert float(cash.value) == 240.0
+    assert float(cash.return_pct) == 0.0
+
+
+def test_cash_included_in_weight(db_session):
+    _add_buy(db_session, quantity=10, total=-456.55)
+    _add_price(db_session, close_price=50.0)  # security value = 500
+    db_session.add(CashBalance(amount_eur=Decimal("500.00")))
+    db_session.commit()
+
+    holdings = get_holdings(db_session)
+    security = next(h for h in holdings if not h.is_cash)
+    cash = next(h for h in holdings if h.is_cash)
+    # Total = 1000, each should be 50%
+    assert float(security.weight) == 50.0
+    assert float(cash.weight) == 50.0
+
+
+def test_cash_row_in_api(client, db_session):
+    _add_buy(db_session, quantity=10, total=-456.55)
+    _add_price(db_session, close_price=50.0)
+    db_session.add(CashBalance(amount_eur=Decimal("240.00")))
+    db_session.commit()
+
+    response = client.get("/api/portfolio/holdings")
+    assert response.status_code == 200
+    data = response.json()
+    cash_rows = [h for h in data if h["is_cash"]]
+    assert len(cash_rows) == 1
+    assert cash_rows[0]["isin"] == "CASH"
+    assert float(cash_rows[0]["value"]) == 240.0

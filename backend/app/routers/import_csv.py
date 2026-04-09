@@ -2,8 +2,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFi
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.cash_balance import CashBalance
 from app.schemas.transaction import ImportConfirmResponse, ImportPreviewResponse, TransactionOut
-from app.services.importer.degiro import import_degiro_transactions, parse_account_csv
+from app.services.importer.degiro import import_degiro_transactions, parse_account_csv, parse_cash_balance
 from app.services.prices.yfinance_fetcher import fetch_prices_for_isins
 
 router = APIRouter()
@@ -40,6 +41,12 @@ async def import_degiro_confirm(
         raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {e}") from e
 
     imported, skipped, db_transactions = import_degiro_transactions(db, parsed)
+
+    cash = parse_cash_balance(content)
+    if cash is not None:
+        db.query(CashBalance).delete()
+        db.add(CashBalance(amount_eur=cash))
+        db.commit()
 
     isins = list({row["isin"] for row in parsed})
     if isins:

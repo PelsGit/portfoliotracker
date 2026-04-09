@@ -33,6 +33,8 @@ COL_OMSCHRIJVING = 5
 COL_FX = 6
 COL_MUTATIE_CUR = 7
 COL_MUTATIE_AMT = 8
+COL_SALDO_CUR = 9
+COL_SALDO_AMT = 10
 COL_ORDER_ID = 11
 
 TRADE_RE = re.compile(r"^(Koop|Verkoop)\s+(\d+(?:[.,]\d+)?)\s+@\s+([\d,]+)\s+(\w+)$")
@@ -173,6 +175,28 @@ def parse_account_csv(file_content: bytes | str) -> list[dict]:
             )
 
     return transactions
+
+
+def parse_cash_balance(file_content: bytes | str) -> Decimal | None:
+    """Return the most recent EUR saldo from the CSV (current EUR cash balance)."""
+    raw_rows = _read_rows(file_content)
+    latest_dt = None
+    latest_balance = None
+    for row in raw_rows:
+        if len(row) <= COL_SALDO_AMT:
+            continue
+        if row[COL_SALDO_CUR].strip() != "EUR":
+            continue
+        try:
+            dt = parse_date(row[COL_DATUM], row[COL_TIJD])
+        except Exception:
+            continue
+        if latest_dt is None or dt >= latest_dt:
+            balance = parse_dutch_number(row[COL_SALDO_AMT])
+            if balance is not None:
+                latest_dt = dt
+                latest_balance = balance
+    return latest_balance
 
 
 def import_degiro_transactions(db, parsed_rows: list[dict]) -> tuple[int, int, list]:

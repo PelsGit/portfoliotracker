@@ -90,13 +90,25 @@ export default function HoldingsTable({ holdings, compact = false }) {
         </thead>
         <tbody>
           {sorted.map((holding) => (
-            <tr key={holding.isin}>
+            <tr key={holding.isin} className={holding.is_cash ? 'cash-row' : ''}>
               {columns.map((col) => (
                 <td key={col.key} className={col.align === 'right' ? 'text-right' : ''}>
                   {col.key === 'product_name' ? (
-                    <span className="name-cell">{holding.product_name || holding.isin}</span>
+                    <span className="name-cell">
+                      {holding.logo_url && !holding.is_cash && (
+                        <img
+                          src={holding.logo_url}
+                          alt=""
+                          className="holding-logo"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      )}
+                      {holding.product_name || holding.isin}
+                    </span>
                   ) : col.key === 'return_pct' ? (
-                    <ReturnBadge value={holding.return_pct} />
+                    holding.is_cash ? <span className="text-muted">—</span> : <ReturnBadge value={holding.return_pct} />
+                  ) : holding.is_cash && ['shares', 'avg_cost', 'current_price'].includes(col.key) ? (
+                    <span className="text-muted">—</span>
                   ) : (
                     formatCell(col.key, holding[col.key])
                   )}
@@ -151,6 +163,31 @@ export default function HoldingsTable({ holdings, compact = false }) {
         .name-cell {
           color: var(--text-primary);
           font-weight: 500;
+          display: flex;
+          align-items: center;
+        }
+
+        .holding-logo {
+          width: 18px;
+          height: 18px;
+          border-radius: 3px;
+          object-fit: contain;
+          margin-right: 8px;
+          flex-shrink: 0;
+          background: var(--bg-secondary, #1e2533);
+        }
+
+        .cash-row td {
+          color: var(--text-muted);
+        }
+
+        .cash-row .name-cell {
+          color: var(--text-secondary);
+          font-weight: 400;
+        }
+
+        .text-muted {
+          color: var(--text-muted);
         }
 
         .sort-indicator {

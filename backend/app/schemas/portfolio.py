@@ -15,6 +15,8 @@ class HoldingOut(BaseModel):
     return_eur: Decimal | None = None
     return_pct: Decimal | None = None
     weight: Decimal | None = None
+    logo_url: str | None = None
+    is_cash: bool = False
 
     model_config = {"from_attributes": True}
 
