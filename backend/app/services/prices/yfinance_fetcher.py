@@ -33,15 +33,19 @@ def _fetch_fx(db: Session, ticker_symbol: str) -> None:
             if isinstance(price_date, datetime):
                 price_date = price_date.date()
 
+            close = float(row["Close"])
+            if close != close:  # NaN check
+                continue
+
             stmt = pg_insert(Price.__table__).values(
                 isin=ticker_symbol,
                 date=price_date,
-                close_price=round(float(row["Close"]), 6),
+                close_price=round(close, 6),
                 fetched_at=datetime.now(timezone.utc),
             )
             stmt = stmt.on_conflict_do_update(
                 constraint="uq_prices_isin_date",
-                set_={"close_price": round(float(row["Close"]), 6), "fetched_at": datetime.now(timezone.utc)},
+                set_={"close_price": round(close, 6), "fetched_at": datetime.now(timezone.utc)},
             )
             db.execute(stmt)
 
@@ -162,6 +166,8 @@ def fetch_prices_for_isins(db: Session, isins: list[str]) -> None:
                     price_date = price_date.date()
 
                 raw_price = float(row["Close"])
+                if raw_price != raw_price:  # NaN check
+                    continue
 
                 # Normalise to EUR
                 if yf_currency == "USD":
