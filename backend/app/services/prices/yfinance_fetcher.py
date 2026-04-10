@@ -85,13 +85,13 @@ def _nearest_rate(rate_map: dict[date, float], d: date) -> float | None:
 
 
 def _logo_from_website(website: str | None) -> str | None:
-    """Derive a Clearbit logo URL from a company website URL."""
+    """Derive a Google favicon URL from a company website URL."""
     if not website:
         return None
     from urllib.parse import urlparse
     netloc = urlparse(website).netloc  # e.g. "www.meta.com"
     domain = netloc.removeprefix("www.")  # e.g. "meta.com"
-    return f"https://logo.clearbit.com/{domain}" if domain else None
+    return f"https://www.google.com/s2/favicons?sz=64&domain={domain}" if domain else None
 
 
 def _upsert_security_info(db: Session, isin: str, ticker) -> None:
