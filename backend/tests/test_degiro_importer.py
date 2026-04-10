@@ -207,3 +207,18 @@ class TestParseCashBalance:
         csv = (ACCOUNT_CSV_HEADER + SAMPLE_BUY_ROWS).encode("utf-8")
         balance = parse_cash_balance(csv)
         assert balance == Decimal("98.00")
+
+    def test_skips_flatexdegiro_bank_rows(self):
+        # DEGIRO cash sweep transfers have two rows at the same timestamp:
+        # 1. "Degiro Cash Sweep Transfer" — shows the *trading* account saldo (correct)
+        # 2. "Overboeking van uw geldrekening bij flatexDEGIRO Bank" — shows the
+        #    *bank* account saldo (must be ignored)
+        from tests.conftest import ACCOUNT_CSV_HEADER
+
+        csv = (
+            ACCOUNT_CSV_HEADER
+            + '10-04-2026,18:21,10-04-2026,,,Degiro Cash Sweep Transfer,,EUR,"2987,03",EUR,"3968,66",\n'
+            + '10-04-2026,18:21,10-04-2026,,,Overboeking van uw geldrekening bij flatexDEGIRO Bank 2.987 EUR,,EUR,,EUR,"981,63",\n'
+        )
+        balance = parse_cash_balance(csv.encode("utf-8"))
+        assert balance == Decimal("3968.66")
