@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from app.models.price import Price
 from app.models.transaction import Transaction
-from app.services.performance import get_performance, _xirr, _compute_max_drawdown
+from app.services.performance import get_performance, _xirr, _compute_max_drawdown, _build_benchmark_series
 from app.schemas.portfolio import PortfolioValuePoint
 
 
@@ -189,6 +189,64 @@ def test_performance_endpoint_with_data(client, db_session):
     data = response.json()
     assert len(data["time_series"]) == 2
     assert data["max_drawdown"] is not None
+
+
+def test_build_benchmark_series_rebase(db_session):
+    # Store fake benchmark prices for ticker "^TEST"
+    ticker = "^TEST"
+    db_session.add(Price(isin=ticker, date=date(2026, 1, 1), close_price=200.0))
+    db_session.add(Price(isin=ticker, date=date(2026, 1, 2), close_price=220.0))
+    db_session.add(Price(isin=ticker, date=date(2026, 1, 3), close_price=210.0))
+    db_session.commit()
+
+    from unittest.mock import patch
+    from app.services.prices.benchmarks import BENCHMARKS
+
+    fake_benchmarks = [{"ticker": "^TEST", "name": "Test Index"}]
+    with patch("app.services.performance.BENCHMARKS", fake_benchmarks):
+        result = _build_benchmark_series(
+            db_session,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+            portfolio_start_value=Decimal("1000"),
+        )
+
+    assert len(result) == 1
+    series = result[0]
+    assert series.name == "Test Index"
+    assert series.ticker == "^TEST"
+    assert len(series.time_series) == 3
+    # Day 1: rebased to portfolio_start_value (1000)
+    assert series.time_series[0].value == Decimal("1000.00")
+    # Day 2: 220/200 * 1000 = 1100
+    assert series.time_series[1].value == Decimal("1100.00")
+    # Day 3: 210/200 * 1000 = 1050
+    assert series.time_series[2].value == Decimal("1050.00")
+
+
+def test_build_benchmark_series_no_prices(db_session):
+    from unittest.mock import patch
+
+    fake_benchmarks = [{"ticker": "^MISSING", "name": "Missing"}]
+    with patch("app.services.performance.BENCHMARKS", fake_benchmarks):
+        result = _build_benchmark_series(
+            db_session,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+            portfolio_start_value=Decimal("1000"),
+        )
+    assert result == []
+
+
+def test_performance_response_includes_benchmarks_field(client, db_session):
+    _buy(db_session, quantity=10, total=-1000.0, txn_date=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    _price(db_session, close=100.0, d=date(2026, 1, 1))
+
+    response = client.get("/api/portfolio/performance?period=ALL")
+    assert response.status_code == 200
+    data = response.json()
+    assert "benchmarks" in data
+    assert isinstance(data["benchmarks"], list)
 
 
 def test_max_drawdown_unit():

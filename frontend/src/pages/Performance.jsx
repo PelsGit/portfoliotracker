@@ -14,13 +14,26 @@ import { formatCurrency, formatPercent } from '../utils/format';
 
 const PERIODS = ['1M', '3M', '6M', '1Y', 'YTD', 'All'];
 
+const BENCHMARK_COLORS = {
+  'S&P 500': '#4ade80',
+  'FTSE All-World': '#fb923c',
+  'Nasdaq 100': '#c084fc',
+};
+const PORTFOLIO_COLOR = '#6c8cff';
+
 function CustomTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
-  const { date, value } = payload[0].payload;
+  const date = payload[0]?.payload?.date;
   return (
     <div className="perf-tooltip">
-      <span className="perf-tooltip-value">{formatCurrency(value)}</span>
       <span className="perf-tooltip-date">{date}</span>
+      {payload.map((entry) => (
+        <span key={entry.dataKey} className="perf-tooltip-row">
+          <span className="perf-tooltip-dot" style={{ background: entry.color }} />
+          <span className="perf-tooltip-label">{entry.name}</span>
+          <span className="perf-tooltip-value">{formatCurrency(entry.value)}</span>
+        </span>
+      ))}
     </div>
   );
 }
@@ -29,6 +42,9 @@ export default function Performance() {
   const [period, setPeriod] = useState('1Y');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeBenchmarks, setActiveBenchmarks] = useState(
+    Object.keys(BENCHMARK_COLORS)
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -40,6 +56,24 @@ export default function Performance() {
   }, [period]);
 
   const series = data?.time_series ?? [];
+  const benchmarks = data?.benchmarks ?? [];
+
+  // Merge portfolio + benchmark series into a single array keyed by date
+  const chartData = series.map((pt) => {
+    const row = { date: pt.date, Portfolio: Number(pt.value) };
+    for (const b of benchmarks) {
+      const match = b.time_series.find((x) => x.date === pt.date);
+      if (match) row[b.name] = Number(match.value);
+    }
+    return row;
+  });
+
+  const toggleBenchmark = (name) => {
+    setActiveBenchmarks((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    );
+  };
+
   const returnType =
     data?.total_return_eur != null
       ? data.total_return_eur >= 0
@@ -104,32 +138,69 @@ export default function Performance() {
         ) : series.length === 0 ? (
           <p className="loading-text">No performance data available.</p>
         ) : (
-          <ResponsiveContainer width="100%" height={360}>
-            <LineChart data={series}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => formatCurrency(v)}
-                width={90}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#6c8cff"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <>
+            <ResponsiveContainer width="100%" height={360}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => formatCurrency(v)}
+                  width={90}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="Portfolio"
+                  name="Portfolio"
+                  stroke={PORTFOLIO_COLOR}
+                  strokeWidth={2}
+                  dot={false}
+                />
+                {benchmarks.map((b) =>
+                  activeBenchmarks.includes(b.name) ? (
+                    <Line
+                      key={b.ticker}
+                      type="monotone"
+                      dataKey={b.name}
+                      name={b.name}
+                      stroke={BENCHMARK_COLORS[b.name] ?? '#888'}
+                      strokeWidth={1.5}
+                      dot={false}
+                      strokeDasharray="4 2"
+                    />
+                  ) : null
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+
+            <div className="chart-legend">
+              <span className="legend-item">
+                <span className="legend-dot" style={{ background: PORTFOLIO_COLOR }} />
+                Portfolio
+              </span>
+              {benchmarks.map((b) => (
+                <button
+                  key={b.ticker}
+                  className={`legend-item legend-item--btn${activeBenchmarks.includes(b.name) ? '' : ' legend-item--inactive'}`}
+                  onClick={() => toggleBenchmark(b.name)}
+                >
+                  <span
+                    className="legend-dot"
+                    style={{ background: BENCHMARK_COLORS[b.name] ?? '#888' }}
+                  />
+                  {b.name}
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
@@ -192,18 +263,78 @@ export default function Performance() {
           padding: 8px 12px;
           display: flex;
           flex-direction: column;
-          gap: 2px;
-        }
-
-        .perf-tooltip-value {
-          color: #fff;
-          font-size: 13px;
-          font-weight: 500;
+          gap: 4px;
+          min-width: 160px;
         }
 
         .perf-tooltip-date {
           color: var(--text-muted);
           font-size: 11px;
+          margin-bottom: 2px;
+        }
+
+        .perf-tooltip-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .perf-tooltip-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        .perf-tooltip-label {
+          color: var(--text-secondary);
+          font-size: 12px;
+          flex: 1;
+        }
+
+        .perf-tooltip-value {
+          color: #fff;
+          font-size: 12px;
+          font-weight: 500;
+        }
+
+        .chart-legend {
+          display: flex;
+          gap: calc(var(--spacing) * 3);
+          margin-top: calc(var(--spacing) * 2);
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+
+        .legend-item--btn {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 0;
+          transition: opacity 0.15s;
+        }
+
+        .legend-item--btn:hover {
+          color: var(--text-primary);
+        }
+
+        .legend-item--inactive {
+          opacity: 0.35;
+        }
+
+        .legend-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          flex-shrink: 0;
         }
       `}</style>
     </div>

@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.models.price import Price
 from app.models.transaction import Transaction
-from app.schemas.portfolio import PerformanceOut, PortfolioValuePoint
+from app.schemas.portfolio import BenchmarkSeries, PerformanceOut, PortfolioValuePoint
+from app.services.prices.benchmarks import BENCHMARKS
 
 
 def _to_decimal(value) -> Decimal:
@@ -213,6 +214,41 @@ def _compute_max_drawdown(series: list[PortfolioValuePoint]) -> Decimal | None:
     return max_drawdown
 
 
+def _build_benchmark_series(
+    db: Session,
+    start_date: date,
+    end_date: date,
+    portfolio_start_value: Decimal,
+) -> list[BenchmarkSeries]:
+    """Return each benchmark rebased to portfolio_start_value on start_date."""
+    result = []
+    for b in BENCHMARKS:
+        ticker = b["ticker"]
+        prices = (
+            db.query(Price)
+            .filter(Price.isin == ticker, Price.date >= start_date, Price.date <= end_date)
+            .order_by(Price.date)
+            .all()
+        )
+        if not prices:
+            continue
+
+        # Find the price on or nearest to start_date
+        p0 = _to_decimal(prices[0].close_price)
+        if p0 == 0:
+            continue
+
+        series = [
+            PortfolioValuePoint(
+                date=p.date,
+                value=(_to_decimal(p.close_price) / p0 * portfolio_start_value).quantize(Decimal("0.01")),
+            )
+            for p in prices
+        ]
+        result.append(BenchmarkSeries(ticker=ticker, name=b["name"], time_series=series))
+    return result
+
+
 def get_performance(db: Session, period: str = "ALL") -> PerformanceOut:
     start_date = _period_start(period)
     end_date = date.today()
@@ -243,6 +279,8 @@ def get_performance(db: Session, period: str = "ALL") -> PerformanceOut:
     irr = _compute_irr(series, transactions)
     max_drawdown = _compute_max_drawdown(series)
 
+    benchmarks = _build_benchmark_series(db, start_date, end_date, series[0].value)
+
     return PerformanceOut(
         time_series=series,
         total_return_eur=total_return_eur,
@@ -251,4 +289,5 @@ def get_performance(db: Session, period: str = "ALL") -> PerformanceOut:
         twr_cumulative=twr_cumulative,
         irr=irr,
         max_drawdown=max_drawdown,
+        benchmarks=benchmarks,
     )
