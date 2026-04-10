@@ -62,8 +62,11 @@ export default function HoldingsTable({ holdings, compact = false }) {
   };
 
   const sorted = [...holdings].sort((a, b) => {
-    const aVal = a[sortKey] ?? -Infinity;
-    const bVal = b[sortKey] ?? -Infinity;
+    const aVal = a[sortKey] != null ? Number(a[sortKey]) : -Infinity;
+    const bVal = b[sortKey] != null ? Number(b[sortKey]) : -Infinity;
+    if (isNaN(aVal) && isNaN(bVal)) return String(a[sortKey]).localeCompare(String(b[sortKey])) * (sortDir === 'asc' ? 1 : -1);
+    if (isNaN(aVal)) return sortDir === 'asc' ? -1 : 1;
+    if (isNaN(bVal)) return sortDir === 'asc' ? 1 : -1;
     if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
     if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
     return 0;

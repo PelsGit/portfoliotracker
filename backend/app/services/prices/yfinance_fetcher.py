@@ -84,6 +84,16 @@ def _nearest_rate(rate_map: dict[date, float], d: date) -> float | None:
     return rate_map[min(rate_map)]
 
 
+def _logo_from_website(website: str | None) -> str | None:
+    """Derive a Clearbit logo URL from a company website URL."""
+    if not website:
+        return None
+    from urllib.parse import urlparse
+    netloc = urlparse(website).netloc  # e.g. "www.meta.com"
+    domain = netloc.removeprefix("www.")  # e.g. "meta.com"
+    return f"https://logo.clearbit.com/{domain}" if domain else None
+
+
 def _upsert_security_info(db: Session, isin: str, ticker) -> None:
     """Extract sector/country/asset_type from yfinance ticker.info and upsert."""
     try:
@@ -92,7 +102,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
         industry = info.get("industry")
         country = info.get("country")
         quote_type = info.get("quoteType")
-        logo_url = info.get("logo_url") or None  # coerce empty string to None
+        logo_url = info.get("logo_url") or _logo_from_website(info.get("website"))
 
         asset_type_map = {"EQUITY": "Stock", "ETF": "ETF", "MUTUALFUND": "Fund"}
         asset_type = asset_type_map.get(quote_type, quote_type)
