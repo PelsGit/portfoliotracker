@@ -98,14 +98,16 @@ export default function HoldingsTable({ holdings, compact = false }) {
                 <td key={col.key} className={col.align === 'right' ? 'text-right' : ''}>
                   {col.key === 'product_name' ? (
                     <span className="name-cell">
-                      {holding.logo_url && !holding.is_cash && (
+                      {holding.is_cash ? (
+                        <span className="cash-icon">💶</span>
+                      ) : holding.logo_url ? (
                         <img
                           src={holding.logo_url}
                           alt=""
                           className="holding-logo"
                           onError={(e) => { e.target.style.display = 'none'; }}
                         />
-                      )}
+                      ) : null}
                       {holding.product_name || holding.isin}
                     </span>
                   ) : col.key === 'return_pct' ? (
@@ -168,6 +170,18 @@ export default function HoldingsTable({ holdings, compact = false }) {
           font-weight: 500;
           display: flex;
           align-items: center;
+        }
+
+        .cash-icon {
+          width: 18px;
+          height: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          margin-right: 8px;
+          font-size: 14px;
+          line-height: 1;
         }
 
         .holding-logo {
