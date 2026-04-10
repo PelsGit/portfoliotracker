@@ -99,7 +99,10 @@ export default function HoldingsTable({ holdings, compact = false }) {
                   {col.key === 'product_name' ? (
                     <span className="name-cell">
                       {holding.is_cash ? (
-                        <span className="cash-icon">💶</span>
+                        <svg className="cash-icon" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <circle cx="9" cy="9" r="8.5" stroke="currentColor" strokeOpacity="0.4"/>
+                          <text x="9" y="13" textAnchor="middle" fontSize="10" fontWeight="600" fill="currentColor" fontFamily="system-ui,sans-serif">€</text>
+                        </svg>
                       ) : holding.logo_url ? (
                         <img
                           src={holding.logo_url}
@@ -175,13 +178,9 @@ export default function HoldingsTable({ holdings, compact = false }) {
         .cash-icon {
           width: 18px;
           height: 18px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
           flex-shrink: 0;
           margin-right: 8px;
-          font-size: 14px;
-          line-height: 1;
+          color: var(--text-muted);
         }
 
         .holding-logo {
