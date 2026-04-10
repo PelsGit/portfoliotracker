@@ -33,15 +33,19 @@ def _fetch_fx(db: Session, ticker_symbol: str) -> None:
             if isinstance(price_date, datetime):
                 price_date = price_date.date()
 
+            close = float(row["Close"])
+            if close != close:  # NaN check
+                continue
+
             stmt = pg_insert(Price.__table__).values(
                 isin=ticker_symbol,
                 date=price_date,
-                close_price=round(float(row["Close"]), 6),
+                close_price=round(close, 6),
                 fetched_at=datetime.now(timezone.utc),
             )
             stmt = stmt.on_conflict_do_update(
                 constraint="uq_prices_isin_date",
-                set_={"close_price": round(float(row["Close"]), 6), "fetched_at": datetime.now(timezone.utc)},
+                set_={"close_price": round(close, 6), "fetched_at": datetime.now(timezone.utc)},
             )
             db.execute(stmt)
 
@@ -80,6 +84,16 @@ def _nearest_rate(rate_map: dict[date, float], d: date) -> float | None:
     return rate_map[min(rate_map)]
 
 
+def _logo_from_website(website: str | None) -> str | None:
+    """Derive a Google favicon URL from a company website URL."""
+    if not website:
+        return None
+    from urllib.parse import urlparse
+    netloc = urlparse(website).netloc  # e.g. "www.meta.com"
+    domain = netloc.removeprefix("www.")  # e.g. "meta.com"
+    return f"https://www.google.com/s2/favicons?sz=64&domain={domain}" if domain else None
+
+
 def _upsert_security_info(db: Session, isin: str, ticker) -> None:
     """Extract sector/country/asset_type from yfinance ticker.info and upsert."""
     try:
@@ -88,6 +102,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
         industry = info.get("industry")
         country = info.get("country")
         quote_type = info.get("quoteType")
+        logo_url = info.get("logo_url") or _logo_from_website(info.get("website"))
 
         asset_type_map = {"EQUITY": "Stock", "ETF": "ETF", "MUTUALFUND": "Fund"}
         asset_type = asset_type_map.get(quote_type, quote_type)
@@ -98,6 +113,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
             industry=industry,
             country=country,
             asset_type=asset_type,
+            logo_url=logo_url,
             fetched_at=datetime.now(timezone.utc),
         )
         stmt = stmt.on_conflict_do_update(
@@ -107,6 +123,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
                 "industry": industry,
                 "country": country,
                 "asset_type": asset_type,
+                "logo_url": logo_url,
                 "fetched_at": datetime.now(timezone.utc),
             },
         )
@@ -162,6 +179,8 @@ def fetch_prices_for_isins(db: Session, isins: list[str]) -> None:
                     price_date = price_date.date()
 
                 raw_price = float(row["Close"])
+                if raw_price != raw_price:  # NaN check
+                    continue
 
                 # Normalise to EUR
                 if yf_currency == "USD":

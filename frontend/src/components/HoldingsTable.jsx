@@ -62,8 +62,11 @@ export default function HoldingsTable({ holdings, compact = false }) {
   };
 
   const sorted = [...holdings].sort((a, b) => {
-    const aVal = a[sortKey] ?? -Infinity;
-    const bVal = b[sortKey] ?? -Infinity;
+    const aVal = a[sortKey] != null ? Number(a[sortKey]) : -Infinity;
+    const bVal = b[sortKey] != null ? Number(b[sortKey]) : -Infinity;
+    if (isNaN(aVal) && isNaN(bVal)) return String(a[sortKey]).localeCompare(String(b[sortKey])) * (sortDir === 'asc' ? 1 : -1);
+    if (isNaN(aVal)) return sortDir === 'asc' ? -1 : 1;
+    if (isNaN(bVal)) return sortDir === 'asc' ? 1 : -1;
     if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
     if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
     return 0;
@@ -90,13 +93,30 @@ export default function HoldingsTable({ holdings, compact = false }) {
         </thead>
         <tbody>
           {sorted.map((holding) => (
-            <tr key={holding.isin}>
+            <tr key={holding.isin} className={holding.is_cash ? 'cash-row' : ''}>
               {columns.map((col) => (
                 <td key={col.key} className={col.align === 'right' ? 'text-right' : ''}>
                   {col.key === 'product_name' ? (
-                    <span className="name-cell">{holding.product_name || holding.isin}</span>
+                    <span className="name-cell">
+                      {holding.is_cash ? (
+                        <svg className="cash-icon" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <circle cx="9" cy="9" r="8.5" stroke="currentColor" strokeOpacity="0.4"/>
+                          <text x="9" y="13" textAnchor="middle" fontSize="10" fontWeight="600" fill="currentColor" fontFamily="system-ui,sans-serif">€</text>
+                        </svg>
+                      ) : holding.logo_url ? (
+                        <img
+                          src={holding.logo_url}
+                          alt=""
+                          className="holding-logo"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : null}
+                      {holding.product_name || holding.isin}
+                    </span>
                   ) : col.key === 'return_pct' ? (
-                    <ReturnBadge value={holding.return_pct} />
+                    holding.is_cash ? <span className="text-muted">—</span> : <ReturnBadge value={holding.return_pct} />
+                  ) : holding.is_cash && ['shares', 'avg_cost', 'current_price'].includes(col.key) ? (
+                    <span className="text-muted">—</span>
                   ) : (
                     formatCell(col.key, holding[col.key])
                   )}
@@ -151,6 +171,39 @@ export default function HoldingsTable({ holdings, compact = false }) {
         .name-cell {
           color: var(--text-primary);
           font-weight: 500;
+          display: flex;
+          align-items: center;
+        }
+
+        .cash-icon {
+          width: 18px;
+          height: 18px;
+          flex-shrink: 0;
+          margin-right: 8px;
+          color: var(--text-muted);
+        }
+
+        .holding-logo {
+          width: 18px;
+          height: 18px;
+          border-radius: 3px;
+          object-fit: contain;
+          margin-right: 8px;
+          flex-shrink: 0;
+          background: var(--bg-secondary, #1e2533);
+        }
+
+        .cash-row td {
+          color: var(--text-muted);
+        }
+
+        .cash-row .name-cell {
+          color: var(--text-secondary);
+          font-weight: 400;
+        }
+
+        .text-muted {
+          color: var(--text-muted);
         }
 
         .sort-indicator {

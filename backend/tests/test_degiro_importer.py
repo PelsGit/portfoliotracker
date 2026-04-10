@@ -10,6 +10,7 @@ from tests.conftest import (
 
 from app.services.importer.degiro import (
     parse_account_csv,
+    parse_cash_balance,
     parse_date,
     parse_dutch_number,
 )
@@ -171,3 +172,38 @@ class TestImportDegiroTransactions:
         imported, skipped, _ = import_degiro_transactions(db_session, parsed)
         assert imported == 2
         assert skipped == 0
+
+
+class TestParseCashBalance:
+    def test_returns_eur_saldo(self):
+        # SAMPLE_BUY_ROWS: last EUR saldo row is costs row with saldo "98,00"
+        from tests.conftest import ACCOUNT_CSV_HEADER, SAMPLE_BUY_ROWS
+
+        csv = ACCOUNT_CSV_HEADER + SAMPLE_BUY_ROWS
+        balance = parse_cash_balance(csv)
+        assert balance == Decimal("98.00")
+
+    def test_returns_none_for_empty_csv(self):
+        from tests.conftest import ACCOUNT_CSV_HEADER
+
+        balance = parse_cash_balance(ACCOUNT_CSV_HEADER)
+        assert balance is None
+
+    def test_picks_most_recent_date(self):
+        from tests.conftest import ACCOUNT_CSV_HEADER
+
+        # Two EUR saldo rows — one older, one newer with higher balance
+        csv = (
+            ACCOUNT_CSV_HEADER
+            + '01-04-2026,10:00,01-04-2026,,,Deposit,,EUR,"500,00",EUR,"500,00",\n'
+            + '02-04-2026,12:00,02-04-2026,,,Deposit,,EUR,"200,00",EUR,"700,00",\n'
+        )
+        balance = parse_cash_balance(csv)
+        assert balance == Decimal("700.00")
+
+    def test_bytes_input(self):
+        from tests.conftest import ACCOUNT_CSV_HEADER, SAMPLE_BUY_ROWS
+
+        csv = (ACCOUNT_CSV_HEADER + SAMPLE_BUY_ROWS).encode("utf-8")
+        balance = parse_cash_balance(csv)
+        assert balance == Decimal("98.00")

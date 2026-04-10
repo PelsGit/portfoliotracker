@@ -3,7 +3,9 @@ from decimal import Decimal
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.models.cash_balance import CashBalance
 from app.models.price import Price
+from app.models.security_info import SecurityInfo
 from app.models.transaction import Transaction
 from app.schemas.portfolio import HoldingOut, PortfolioSummaryOut
 
@@ -38,6 +40,11 @@ def get_holdings(db: Session) -> list[HoldingOut]:
     )
     price_map = {row.isin: row.close_price for row in latest_prices}
 
+    security_info_map = {
+        si.isin: si
+        for si in db.query(SecurityInfo).filter(SecurityInfo.isin.in_(list(by_isin.keys()))).all()
+    }
+
     holdings = []
     for isin, txns in by_isin.items():
         net_shares = sum(_to_decimal(t.quantity) for t in txns)
@@ -66,6 +73,7 @@ def get_holdings(db: Session) -> list[HoldingOut]:
             return_pct = None
 
         most_recent = max(txns, key=lambda t: t.date)
+        si = security_info_map.get(isin)
 
         holdings.append(HoldingOut(
             isin=isin,
@@ -78,6 +86,7 @@ def get_holdings(db: Session) -> list[HoldingOut]:
             return_eur=return_eur,
             return_pct=return_pct,
             weight=None,
+            logo_url=si.logo_url if si else None,
         ))
 
     total_value = sum(h.value for h in holdings if h.value is not None)
@@ -85,6 +94,29 @@ def get_holdings(db: Session) -> list[HoldingOut]:
         for h in holdings:
             if h.value is not None:
                 h.weight = h.value / total_value * 100
+
+    # Append cash row and recalculate weights
+    cash_row = db.query(CashBalance).first()
+    if cash_row and _to_decimal(cash_row.amount_eur) > 0:
+        cash_value = _to_decimal(cash_row.amount_eur)
+        holdings.append(HoldingOut(
+            isin="CASH",
+            product_name="Cash",
+            shares=Decimal(1),
+            avg_cost=cash_value,
+            current_price=cash_value,
+            value=cash_value,
+            cost_basis=cash_value,
+            return_eur=Decimal(0),
+            return_pct=Decimal(0),
+            weight=None,
+            is_cash=True,
+        ))
+        total_with_cash = sum(h.value for h in holdings if h.value is not None)
+        if total_with_cash:
+            for h in holdings:
+                if h.value is not None:
+                    h.weight = h.value / total_with_cash * 100
 
     return holdings
 
