@@ -21,6 +21,11 @@ const BENCHMARK_COLORS = {
 };
 const PORTFOLIO_COLOR = '#6c8cff';
 
+function fmtPct(v) {
+  if (v == null) return '—';
+  return (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+}
+
 function CustomTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const date = payload[0]?.payload?.date;
@@ -31,7 +36,9 @@ function CustomTooltip({ active, payload }) {
         <span key={entry.dataKey} className="perf-tooltip-row">
           <span className="perf-tooltip-dot" style={{ background: entry.color }} />
           <span className="perf-tooltip-label">{entry.name}</span>
-          <span className="perf-tooltip-value">{formatCurrency(entry.value)}</span>
+          <span className="perf-tooltip-value" style={{ color: entry.value >= 0 ? '#4ade80' : '#f87171' }}>
+            {fmtPct(entry.value)}
+          </span>
         </span>
       ))}
     </div>
@@ -58,12 +65,20 @@ export default function Performance() {
   const series = data?.time_series ?? [];
   const benchmarks = data?.benchmarks ?? [];
 
-  // Merge portfolio + benchmark series into a single array keyed by date
+  // Rebase everything to % return from the first data point (all lines start at 0%)
+  const portfolioStart = series.length > 0 ? Number(series[0].value) : 1;
+
+  // Build a lookup: benchmark name -> start value (first point's value, already rebased to portfolioStart)
+  // Since benchmarks are rebased to portfolioStart on the backend, their start value == portfolioStart
   const chartData = series.map((pt) => {
-    const row = { date: pt.date, Portfolio: Number(pt.value) };
+    const pctPortfolio = ((Number(pt.value) / portfolioStart) - 1) * 100;
+    const row = { date: pt.date, Portfolio: parseFloat(pctPortfolio.toFixed(2)) };
     for (const b of benchmarks) {
       const match = b.time_series.find((x) => x.date === pt.date);
-      if (match) row[b.name] = Number(match.value);
+      if (match) {
+        const pct = ((Number(match.value) / portfolioStart) - 1) * 100;
+        row[b.name] = parseFloat(pct.toFixed(2));
+      }
     }
     return row;
   });
@@ -152,8 +167,8 @@ export default function Performance() {
                   tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(v) => formatCurrency(v)}
-                  width={90}
+                  tickFormatter={(v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '%'}
+                  width={65}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Line
