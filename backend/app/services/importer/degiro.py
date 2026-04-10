@@ -178,7 +178,12 @@ def parse_account_csv(file_content: bytes | str) -> list[dict]:
 
 
 def parse_cash_balance(file_content: bytes | str) -> Decimal | None:
-    """Return the most recent EUR saldo from the CSV (current EUR cash balance)."""
+    """Return the most recent EUR saldo from the CSV (current EUR cash balance).
+
+    Rows referencing the flatexDEGIRO Bank savings account (Overboeking naar/van
+    uw geldrekening bij flatexDEGIRO Bank) are skipped — those show the *bank*
+    account saldo, not the trading account cash balance.
+    """
     raw_rows = _read_rows(file_content)
     latest_dt = None
     latest_balance = None
@@ -186,6 +191,9 @@ def parse_cash_balance(file_content: bytes | str) -> Decimal | None:
         if len(row) <= COL_SALDO_AMT:
             continue
         if row[COL_SALDO_CUR].strip() != "EUR":
+            continue
+        # Skip bank-account reference rows (they show flatexDEGIRO Bank saldo)
+        if "flatexDEGIRO" in row[COL_OMSCHRIJVING]:
             continue
         try:
             dt = parse_date(row[COL_DATUM], row[COL_TIJD])
