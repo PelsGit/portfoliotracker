@@ -56,6 +56,7 @@ class BenchmarkSeries(BaseModel):
 
 class PerformanceOut(BaseModel):
     time_series: list[PortfolioValuePoint]
+    twr_series: list[PortfolioValuePoint] = []  # daily cumulative TWR in % (cash-flow adjusted)
     total_return_eur: Decimal | None = None
     total_return_pct: Decimal | None = None
     twr: Decimal | None = None

@@ -3,6 +3,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,16 +15,26 @@ import { formatCurrency, formatPercent } from '../utils/format';
 
 const PERIODS = ['1M', '3M', '6M', '1Y', 'YTD', 'All'];
 
-const BENCHMARK_COLORS = {
-  'S&P 500': '#4ade80',
-  'FTSE All-World': '#fb923c',
-  'Nasdaq 100': '#c084fc',
-};
+const BENCHMARKS_META = [
+  { name: 'S&P 500',       color: '#4ade80' },
+  { name: 'FTSE All-World', color: '#fb923c' },
+  { name: 'Nasdaq 100',    color: '#c084fc' },
+];
 const PORTFOLIO_COLOR = '#6c8cff';
+
+/** Forward-fill: given a sorted [{date,value}] array, find the last value ≤ targetDate */
+function forwardFill(sortedSeries, targetDate) {
+  let last = null;
+  for (const pt of sortedSeries) {
+    if (pt.date <= targetDate) last = Number(pt.value);
+    else break;
+  }
+  return last;
+}
 
 function fmtPct(v) {
   if (v == null) return '—';
-  return (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+  return (v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%';
 }
 
 function CustomTooltip({ active, payload }) {
@@ -36,7 +47,10 @@ function CustomTooltip({ active, payload }) {
         <span key={entry.dataKey} className="perf-tooltip-row">
           <span className="perf-tooltip-dot" style={{ background: entry.color }} />
           <span className="perf-tooltip-label">{entry.name}</span>
-          <span className="perf-tooltip-value" style={{ color: entry.value >= 0 ? '#4ade80' : '#f87171' }}>
+          <span
+            className="perf-tooltip-value"
+            style={{ color: entry.value >= 0 ? '#4ade80' : '#f87171' }}
+          >
             {fmtPct(entry.value)}
           </span>
         </span>
@@ -50,7 +64,7 @@ export default function Performance() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeBenchmarks, setActiveBenchmarks] = useState(
-    Object.keys(BENCHMARK_COLORS)
+    BENCHMARKS_META.map((b) => b.name)
   );
 
   useEffect(() => {
@@ -62,38 +76,26 @@ export default function Performance() {
       .finally(() => setLoading(false));
   }, [period]);
 
-  const series = data?.time_series ?? [];
+  const twrSeries = data?.twr_series ?? [];
   const benchmarks = data?.benchmarks ?? [];
 
-  // Rebase everything to % return from the first data point (all lines start at 0%)
-  const portfolioStart = series.length > 0 ? Number(series[0].value) : 1;
-
-  // Build a lookup: benchmark name -> start value (first point's value, already rebased to portfolioStart)
-  // Since benchmarks are rebased to portfolioStart on the backend, their start value == portfolioStart
-  const chartData = series.map((pt) => {
-    const pctPortfolio = ((Number(pt.value) / portfolioStart) - 1) * 100;
-    const row = { date: pt.date, Portfolio: parseFloat(pctPortfolio.toFixed(2)) };
+  // Build chart data: portfolio TWR % + forward-filled benchmark % per date
+  const chartData = twrSeries.map((pt) => {
+    const row = { date: pt.date, Portfolio: Number(pt.value) };
     for (const b of benchmarks) {
-      const match = b.time_series.find((x) => x.date === pt.date);
-      if (match) {
-        const pct = ((Number(match.value) / portfolioStart) - 1) * 100;
-        row[b.name] = parseFloat(pct.toFixed(2));
-      }
+      row[b.name] = forwardFill(b.time_series, pt.date);
     }
     return row;
   });
 
-  const toggleBenchmark = (name) => {
+  const toggleBenchmark = (name) =>
     setActiveBenchmarks((prev) =>
       prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
     );
-  };
 
   const returnType =
     data?.total_return_eur != null
-      ? data.total_return_eur >= 0
-        ? 'positive'
-        : 'negative'
+      ? data.total_return_eur >= 0 ? 'positive' : 'negative'
       : 'neutral';
   const twrType =
     data?.twr != null ? (data.twr >= 0 ? 'positive' : 'negative') : 'neutral';
@@ -106,16 +108,38 @@ export default function Performance() {
     <div>
       <h1 className="page-title">Performance</h1>
 
-      <div className="period-selector">
-        {PERIODS.map((p) => (
-          <button
-            key={p}
-            className={`period-btn${period === p ? ' period-btn--active' : ''}`}
-            onClick={() => setPeriod(p)}
-          >
-            {p}
-          </button>
-        ))}
+      <div className="toolbar">
+        <div className="period-selector">
+          {PERIODS.map((p) => (
+            <button
+              key={p}
+              className={`period-btn${period === p ? ' period-btn--active' : ''}`}
+              onClick={() => setPeriod(p)}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
+        <div className="benchmark-selector">
+          {BENCHMARKS_META.map((b) => {
+            const active = activeBenchmarks.includes(b.name);
+            return (
+              <button
+                key={b.name}
+                className={`benchmark-btn${active ? ' benchmark-btn--active' : ''}`}
+                style={active ? { '--bm-color': b.color } : {}}
+                onClick={() => toggleBenchmark(b.name)}
+              >
+                <span
+                  className="benchmark-dot"
+                  style={{ background: active ? b.color : 'var(--text-muted)' }}
+                />
+                {b.name}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="metrics-grid metrics-grid--4">
@@ -150,72 +174,55 @@ export default function Performance() {
       <div className="chart-card">
         {loading ? (
           <p className="loading-text">Loading...</p>
-        ) : series.length === 0 ? (
+        ) : twrSeries.length === 0 ? (
           <p className="loading-text">No performance data available.</p>
         ) : (
-          <>
-            <ResponsiveContainer width="100%" height={360}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '%'}
-                  width={65}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="Portfolio"
-                  name="Portfolio"
-                  stroke={PORTFOLIO_COLOR}
-                  strokeWidth={2}
-                  dot={false}
-                />
-                {benchmarks.map((b) =>
-                  activeBenchmarks.includes(b.name) ? (
-                    <Line
-                      key={b.ticker}
-                      type="monotone"
-                      dataKey={b.name}
-                      name={b.name}
-                      stroke={BENCHMARK_COLORS[b.name] ?? '#888'}
-                      strokeWidth={1.5}
-                      dot={false}
-                      strokeDasharray="4 2"
-                    />
-                  ) : null
-                )}
-              </LineChart>
-            </ResponsiveContainer>
-
-            <div className="chart-legend">
-              <span className="legend-item">
-                <span className="legend-dot" style={{ background: PORTFOLIO_COLOR }} />
-                Portfolio
-              </span>
-              {benchmarks.map((b) => (
-                <button
-                  key={b.ticker}
-                  className={`legend-item legend-item--btn${activeBenchmarks.includes(b.name) ? '' : ' legend-item--inactive'}`}
-                  onClick={() => toggleBenchmark(b.name)}
-                >
-                  <span
-                    className="legend-dot"
-                    style={{ background: BENCHMARK_COLORS[b.name] ?? '#888' }}
+          <ResponsiveContainer width="100%" height={360}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => (v >= 0 ? '+' : '') + Number(v).toFixed(1) + '%'}
+                width={65}
+              />
+              <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
+              <Tooltip content={<CustomTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="Portfolio"
+                name="Portfolio"
+                stroke={PORTFOLIO_COLOR}
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+              />
+              {benchmarks.map((b) => {
+                const meta = BENCHMARKS_META.find((m) => m.name === b.name);
+                if (!activeBenchmarks.includes(b.name)) return null;
+                return (
+                  <Line
+                    key={b.ticker}
+                    type="monotone"
+                    dataKey={b.name}
+                    name={b.name}
+                    stroke={meta?.color ?? '#888'}
+                    strokeWidth={1.5}
+                    dot={false}
+                    strokeDasharray="4 2"
+                    connectNulls
                   />
-                  {b.name}
-                </button>
-              ))}
-            </div>
-          </>
+                );
+              })}
+            </LineChart>
+          </ResponsiveContainer>
         )}
       </div>
 
@@ -227,10 +234,17 @@ export default function Performance() {
           margin-bottom: calc(var(--spacing) * 2);
         }
 
+        .toolbar {
+          display: flex;
+          align-items: center;
+          gap: calc(var(--spacing) * 3);
+          margin-bottom: calc(var(--spacing) * 2);
+          flex-wrap: wrap;
+        }
+
         .period-selector {
           display: flex;
           gap: calc(var(--spacing) * 1);
-          margin-bottom: calc(var(--spacing) * 2);
         }
 
         .period-btn {
@@ -243,14 +257,47 @@ export default function Performance() {
           cursor: pointer;
         }
 
-        .period-btn:hover {
-          color: var(--text-primary);
-        }
+        .period-btn:hover { color: var(--text-primary); }
 
         .period-btn--active {
           background: var(--accent-blue);
           color: #fff;
           border-color: var(--accent-blue);
+        }
+
+        .benchmark-selector {
+          display: flex;
+          gap: calc(var(--spacing) * 1);
+          margin-left: auto;
+        }
+
+        .benchmark-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: var(--bg-card);
+          border: var(--border-card);
+          border-radius: var(--radius);
+          color: var(--text-muted);
+          font-size: 12px;
+          padding: calc(var(--spacing) * 0.75) calc(var(--spacing) * 1.5);
+          cursor: pointer;
+          opacity: 0.5;
+          transition: opacity 0.15s, color 0.15s;
+        }
+
+        .benchmark-btn--active {
+          color: var(--text-primary);
+          opacity: 1;
+        }
+
+        .benchmark-btn:hover { opacity: 0.8; }
+
+        .benchmark-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
         }
 
         .metrics-grid--4 {
@@ -308,48 +355,8 @@ export default function Performance() {
         }
 
         .perf-tooltip-value {
-          color: #fff;
           font-size: 12px;
           font-weight: 500;
-        }
-
-        .chart-legend {
-          display: flex;
-          gap: calc(var(--spacing) * 3);
-          margin-top: calc(var(--spacing) * 2);
-          justify-content: center;
-          flex-wrap: wrap;
-        }
-
-        .legend-item {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 12px;
-          color: var(--text-secondary);
-        }
-
-        .legend-item--btn {
-          background: none;
-          border: none;
-          cursor: pointer;
-          padding: 0;
-          transition: opacity 0.15s;
-        }
-
-        .legend-item--btn:hover {
-          color: var(--text-primary);
-        }
-
-        .legend-item--inactive {
-          opacity: 0.35;
-        }
-
-        .legend-dot {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          flex-shrink: 0;
         }
       `}</style>
     </div>
