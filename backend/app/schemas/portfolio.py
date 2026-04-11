@@ -48,11 +48,19 @@ class BreakdownOut(BaseModel):
     asset_type: list[BreakdownItem]
 
 
+class BenchmarkSeries(BaseModel):
+    ticker: str
+    name: str
+    time_series: list[PortfolioValuePoint]
+
+
 class PerformanceOut(BaseModel):
     time_series: list[PortfolioValuePoint]
+    twr_series: list[PortfolioValuePoint] = []  # daily cumulative TWR in % (cash-flow adjusted)
     total_return_eur: Decimal | None = None
     total_return_pct: Decimal | None = None
     twr: Decimal | None = None
     twr_cumulative: Decimal | None = None
     irr: Decimal | None = None
     max_drawdown: Decimal | None = None
+    benchmarks: list[BenchmarkSeries] = []

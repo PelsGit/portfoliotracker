@@ -6,14 +6,15 @@ from sqlalchemy.orm import Session
 
 from app.models.price import Price
 from app.models.security_info import SecurityInfo
+from app.services.prices.benchmarks import BENCHMARK_NAME, BENCHMARK_TICKERS
 
 logger = logging.getLogger(__name__)
 
 FX_ISIN = "EURUSD=X"
 GBPEUR_ISIN = "GBPEUR=X"
 
-# ISINs that are FX tickers, not stocks
-_FX_ISINS = {FX_ISIN, GBPEUR_ISIN}
+# Tickers that are not stock ISINs — skip in fetch_prices_for_isins
+_FX_ISINS = {FX_ISIN, GBPEUR_ISIN} | set(BENCHMARK_TICKERS)
 
 
 def _fetch_fx(db: Session, ticker_symbol: str) -> None:
@@ -214,4 +215,66 @@ def fetch_prices_for_isins(db: Session, isins: list[str]) -> None:
 
         except Exception:
             logger.exception("Failed to fetch prices for ISIN %s", isin)
+            db.rollback()
+
+
+def fetch_benchmark_prices(db: Session) -> None:
+    """Fetch price history for benchmark indices/ETFs and store normalised to EUR."""
+    import yfinance as yf
+
+    # Ensure EUR/USD rates are available for conversion
+    fetch_eurusd_rate(db)
+    eurusd = _load_fx_history(db, FX_ISIN)
+
+    for ticker in BENCHMARK_TICKERS:
+        try:
+            t = yf.Ticker(ticker)
+            hist = t.history(period="max")
+
+            if hist.empty:
+                logger.warning("No benchmark data for %s", ticker)
+                continue
+
+            try:
+                yf_currency = t.fast_info.currency or "EUR"
+            except Exception:
+                yf_currency = "EUR"
+
+            logger.info(
+                "Benchmark %s (%s): currency=%s, %d rows",
+                ticker, BENCHMARK_NAME[ticker], yf_currency, len(hist),
+            )
+
+            for idx, row in hist.iterrows():
+                price_date = idx.date() if isinstance(idx, datetime) else idx
+                if isinstance(price_date, datetime):
+                    price_date = price_date.date()
+
+                raw_price = float(row["Close"])
+                if raw_price != raw_price:  # NaN check
+                    continue
+
+                if yf_currency == "USD":
+                    rate = _nearest_rate(eurusd, price_date)
+                    eur_price = raw_price / rate if rate else raw_price
+                else:
+                    eur_price = raw_price
+
+                stmt = pg_insert(Price.__table__).values(
+                    isin=ticker,
+                    date=price_date,
+                    close_price=round(eur_price, 4),
+                    fetched_at=datetime.now(timezone.utc),
+                )
+                stmt = stmt.on_conflict_do_update(
+                    constraint="uq_prices_isin_date",
+                    set_={"close_price": round(eur_price, 4), "fetched_at": datetime.now(timezone.utc)},
+                )
+                db.execute(stmt)
+
+            db.commit()
+            logger.info("Stored benchmark prices for %s", ticker)
+
+        except Exception:
+            logger.exception("Failed to fetch benchmark %s", ticker)
             db.rollback()

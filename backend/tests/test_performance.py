@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from app.models.price import Price
 from app.models.transaction import Transaction
-from app.services.performance import get_performance, _xirr, _compute_max_drawdown
+from app.services.performance import get_performance, _xirr, _compute_max_drawdown, _build_benchmark_series, _build_twr_series
 from app.schemas.portfolio import PortfolioValuePoint
 
 
@@ -188,7 +188,105 @@ def test_performance_endpoint_with_data(client, db_session):
     assert response.status_code == 200
     data = response.json()
     assert len(data["time_series"]) == 2
+    assert len(data["twr_series"]) == 2
+    assert data["twr_series"][0]["value"] == "0"   # starts at 0%
     assert data["max_drawdown"] is not None
+
+
+def test_build_benchmark_series_pct(db_session):
+    # Benchmark series now returns % return from first price, not EUR values
+    ticker = "^TEST"
+    db_session.add(Price(isin=ticker, date=date(2026, 1, 1), close_price=200.0))
+    db_session.add(Price(isin=ticker, date=date(2026, 1, 2), close_price=220.0))
+    db_session.add(Price(isin=ticker, date=date(2026, 1, 3), close_price=210.0))
+    db_session.commit()
+
+    from unittest.mock import patch
+
+    fake_benchmarks = [{"ticker": "^TEST", "name": "Test Index"}]
+    with patch("app.services.performance.BENCHMARKS", fake_benchmarks):
+        result = _build_benchmark_series(
+            db_session,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+
+    assert len(result) == 1
+    series = result[0]
+    assert series.name == "Test Index"
+    assert series.ticker == "^TEST"
+    assert len(series.time_series) == 3
+    # Day 1: 0% (baseline)
+    assert series.time_series[0].value == Decimal("0.00")
+    # Day 2: (220/200 - 1) * 100 = +10%
+    assert series.time_series[1].value == Decimal("10.00")
+    # Day 3: (210/200 - 1) * 100 = +5%
+    assert series.time_series[2].value == Decimal("5.00")
+
+
+def test_build_benchmark_series_no_prices(db_session):
+    from unittest.mock import patch
+
+    fake_benchmarks = [{"ticker": "^MISSING", "name": "Missing"}]
+    with patch("app.services.performance.BENCHMARKS", fake_benchmarks):
+        result = _build_benchmark_series(
+            db_session,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+    assert result == []
+
+
+def test_build_twr_series_no_cashflows(db_session):
+    # Without cash flows, TWR == simple return
+    series = [
+        PortfolioValuePoint(date=date(2026, 1, 1), value=Decimal("1000")),
+        PortfolioValuePoint(date=date(2026, 1, 2), value=Decimal("1100")),
+        PortfolioValuePoint(date=date(2026, 1, 3), value=Decimal("1050")),
+    ]
+    result = _build_twr_series(series, [], date(2026, 1, 1))
+    assert result[0].value == Decimal("0")        # starts at 0%
+    assert result[1].value == Decimal("10.00")    # +10%
+    assert result[2].value == Decimal("5.00")     # +5%
+
+
+def test_build_twr_series_strips_deposit(db_session):
+    # Deposit doubles the portfolio value but should not inflate TWR
+    # Day 1: buy 10 shares at 100 → portfolio = 1000
+    # Day 2: price stays 100, but we deposit 1000 and buy 10 more shares
+    #         portfolio = 2000, but TWR should still be 0%
+    from datetime import datetime, timezone
+    txn = Transaction(
+        isin="US1234567890", product_name="TEST",
+        date=datetime(2026, 1, 2, 12, 0, tzinfo=timezone.utc),
+        quantity=10, total=-1000.0, order_id="order2",
+    )
+    db_session.add(txn)
+    db_session.commit()
+
+    series = [
+        PortfolioValuePoint(date=date(2026, 1, 1), value=Decimal("1000")),
+        PortfolioValuePoint(date=date(2026, 1, 2), value=Decimal("2000")),  # doubled by deposit
+        PortfolioValuePoint(date=date(2026, 1, 3), value=Decimal("2200")),  # +10% price gain
+    ]
+    result = _build_twr_series(series, [txn], date(2026, 1, 1))
+    # Day 1: 0%
+    assert result[0].value == Decimal("0")
+    # Day 2: deposit happened, price flat → TWR still 0%
+    assert result[1].value == Decimal("0.00")
+    # Day 3: +10% from day 2 price (2200/2000)
+    assert result[2].value == Decimal("10.00")
+
+
+def test_performance_response_includes_benchmarks_field(client, db_session):
+    _buy(db_session, quantity=10, total=-1000.0, txn_date=datetime(2026, 1, 1, tzinfo=timezone.utc))
+    _price(db_session, close=100.0, d=date(2026, 1, 1))
+
+    response = client.get("/api/portfolio/performance?period=ALL")
+    assert response.status_code == 200
+    data = response.json()
+    assert "benchmarks" in data
+    assert isinstance(data["benchmarks"], list)
 
 
 def test_max_drawdown_unit():

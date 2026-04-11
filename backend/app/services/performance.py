@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.models.price import Price
 from app.models.transaction import Transaction
-from app.schemas.portfolio import PerformanceOut, PortfolioValuePoint
+from app.schemas.portfolio import BenchmarkSeries, PerformanceOut, PortfolioValuePoint
+from app.services.prices.benchmarks import BENCHMARKS
 
 
 def _to_decimal(value) -> Decimal:
@@ -213,6 +214,92 @@ def _compute_max_drawdown(series: list[PortfolioValuePoint]) -> Decimal | None:
     return max_drawdown
 
 
+def _build_twr_series(
+    series: list[PortfolioValuePoint],
+    transactions: list[Transaction],
+    start_date: date,
+) -> list[PortfolioValuePoint]:
+    """Daily cumulative TWR as % return, cash-flow adjusted.
+
+    All lines start at 0% on series[0].date. New deposits/withdrawals are
+    stripped out so the line reflects investment skill, not capital added.
+    """
+    if not series:
+        return []
+
+    sub_start = series[0].value
+    if sub_start <= 0:
+        return []
+
+    # Net inflow per date (buys have negative total → positive inflow)
+    cf_dates: dict[date, Decimal] = {}
+    for txn in transactions:
+        txn_date = txn.date
+        if hasattr(txn_date, "date"):
+            txn_date = txn_date.date()
+        if txn_date < start_date:
+            continue
+        net_inflow = -_to_decimal(txn.total)
+        cf_dates[txn_date] = cf_dates.get(txn_date, Decimal(0)) + net_inflow
+
+    product = Decimal(1)
+    twr_series = [PortfolioValuePoint(date=series[0].date, value=Decimal(0))]
+
+    for pt in series[1:]:
+        d = pt.date
+        v = pt.value
+
+        if d in cf_dates:
+            # Close the current sub-period: measure value *before* the cash flow
+            end_before_cf = max(v - cf_dates[d], Decimal(0))
+            if sub_start > 0:
+                product *= end_before_cf / sub_start
+            # New sub-period starts at v (portfolio value *after* the cash flow)
+            sub_start = v
+
+        # Cumulative TWR today = completed sub-periods × open sub-period to today
+        current_hpr = (v / sub_start) if sub_start > 0 else Decimal(1)
+        cum_pct = (product * current_hpr - Decimal(1)) * Decimal(100)
+        twr_series.append(
+            PortfolioValuePoint(date=d, value=cum_pct.quantize(Decimal("0.01")))
+        )
+
+    return twr_series
+
+
+def _build_benchmark_series(
+    db: Session,
+    start_date: date,
+    end_date: date,
+) -> list[BenchmarkSeries]:
+    """Return each benchmark as % return from its first available price in the period."""
+    result = []
+    for b in BENCHMARKS:
+        ticker = b["ticker"]
+        prices = (
+            db.query(Price)
+            .filter(Price.isin == ticker, Price.date >= start_date, Price.date <= end_date)
+            .order_by(Price.date)
+            .all()
+        )
+        if not prices:
+            continue
+
+        p0 = _to_decimal(prices[0].close_price)
+        if p0 == 0:
+            continue
+
+        series = [
+            PortfolioValuePoint(
+                date=p.date,
+                value=((_to_decimal(p.close_price) / p0 - 1) * 100).quantize(Decimal("0.01")),
+            )
+            for p in prices
+        ]
+        result.append(BenchmarkSeries(ticker=ticker, name=b["name"], time_series=series))
+    return result
+
+
 def get_performance(db: Session, period: str = "ALL") -> PerformanceOut:
     start_date = _period_start(period)
     end_date = date.today()
@@ -242,13 +329,17 @@ def get_performance(db: Session, period: str = "ALL") -> PerformanceOut:
     twr, twr_cumulative = _compute_twr(series, transactions, start_date)
     irr = _compute_irr(series, transactions)
     max_drawdown = _compute_max_drawdown(series)
+    twr_series = _build_twr_series(series, transactions, start_date)
+    benchmarks = _build_benchmark_series(db, start_date, end_date)
 
     return PerformanceOut(
         time_series=series,
+        twr_series=twr_series,
         total_return_eur=total_return_eur,
         total_return_pct=total_return_pct,
         twr=twr,
         twr_cumulative=twr_cumulative,
         irr=irr,
         max_drawdown=max_drawdown,
+        benchmarks=benchmarks,
     )
