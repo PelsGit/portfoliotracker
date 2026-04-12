@@ -5,6 +5,7 @@ const navItems = [
   { path: '/holdings', label: 'Holdings' },
   { path: '/breakdown', label: 'Breakdown' },
   { path: '/performance', label: 'Performance' },
+  { path: '/calendar', label: 'Calendar' },
   { path: '/import', label: 'Import CSV' },
 ];
 

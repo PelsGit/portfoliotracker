@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import SessionLocal
 from app.routers import health, import_csv, portfolio, prices
+from app.services.earnings import fetch_earnings_dates
 from app.services.price_refresh import scheduled_refresh
 from app.services.prices.yfinance_fetcher import fetch_benchmark_prices
 
@@ -25,11 +26,22 @@ def _startup_fetch_benchmarks() -> None:
         db.close()
 
 
+def _startup_fetch_earnings() -> None:
+    db = SessionLocal()
+    try:
+        fetch_earnings_dates(db)
+    except Exception:
+        logger.exception("Startup earnings fetch failed")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import asyncio
 
     asyncio.get_event_loop().run_in_executor(None, _startup_fetch_benchmarks)
+    asyncio.get_event_loop().run_in_executor(None, _startup_fetch_earnings)
 
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
@@ -44,8 +56,14 @@ async def lifespan(app: FastAPI):
         id="daily_benchmark_refresh",
         replace_existing=True,
     )
+    scheduler.add_job(
+        _startup_fetch_earnings,
+        CronTrigger(hour=19, minute=0),
+        id="daily_earnings_refresh",
+        replace_existing=True,
+    )
     scheduler.start()
-    logger.info("Scheduled daily price refresh at 18:30 UTC and benchmark refresh at 18:45 UTC")
+    logger.info("Scheduled daily: price 18:30, benchmarks 18:45, earnings 19:00 UTC")
     yield
     scheduler.shutdown()
 

@@ -54,6 +54,12 @@ class BenchmarkSeries(BaseModel):
     time_series: list[PortfolioValuePoint]
 
 
+class EarningsDateOut(BaseModel):
+    isin: str
+    product_name: str
+    earnings_date: str  # ISO date string
+
+
 class PerformanceOut(BaseModel):
     time_series: list[PortfolioValuePoint]
     twr_series: list[PortfolioValuePoint] = []  # daily cumulative TWR in % (cash-flow adjusted)

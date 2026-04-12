@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.portfolio import BreakdownOut, HoldingOut, PerformanceOut, PortfolioSummaryOut
+from app.schemas.portfolio import BreakdownOut, EarningsDateOut, HoldingOut, PerformanceOut, PortfolioSummaryOut
 from app.services.breakdown import get_breakdown
+from app.services.earnings import get_earnings
 from app.services.performance import get_performance
 from app.services.portfolio import get_holdings, get_summary
 
@@ -29,3 +30,8 @@ def portfolio_breakdown(db: Session = Depends(get_db)):
 @router.get("/portfolio/performance", response_model=PerformanceOut)
 def portfolio_performance(period: str = "ALL", db: Session = Depends(get_db)):
     return get_performance(db, period)
+
+
+@router.get("/portfolio/earnings", response_model=list[EarningsDateOut])
+def portfolio_earnings(db: Session = Depends(get_db)):
+    return get_earnings(db)
