@@ -10,6 +10,7 @@ description: Git workflow and branching rules
 - Create `feature/short-description` branches for new features
 - Create `bugfix/short-description` branches for bug fixes
 - Branch names must be lowercase with hyphens only
+- Before every commit, check the current branch name matches the work type — if fixing a bug on a `feature/` branch, create a new `bugfix/` branch first
 
 ## Commits
 
@@ -26,6 +27,12 @@ description: Git workflow and branching rules
 4. `git commit -m "descriptive message"` — commit
 5. `git push origin feature/your-feature` — push branch
 6. Open a PR when the feature is complete — see cicd.md for the full PR workflow
+
+## After every task
+
+- Run `git status` — stage and commit ALL modified files (including docs, rules, config)
+- Push the branch immediately after committing
+- Never leave unstaged changes at end of a task
 
 ## Never do
 

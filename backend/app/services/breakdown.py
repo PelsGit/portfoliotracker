@@ -61,11 +61,16 @@ def get_breakdown(db: Session) -> dict:
 
     for h in holdings:
         v = h.value or Decimal(0)
-        si = info_map.get(h.isin)
-        sector = si.sector if si and si.sector else "Unknown"
-        country = si.country if si else None
-        region = _get_region(country)
-        asset_type = si.asset_type if si and si.asset_type else "Unknown"
+        if h.is_cash:
+            sector = "Cash"
+            region = "Cash"
+            asset_type = "Cash"
+        else:
+            si = info_map.get(h.isin)
+            sector = si.sector if si and si.sector else "Unknown"
+            country = si.country if si else None
+            region = _get_region(country)
+            asset_type = si.asset_type if si and si.asset_type else "Unknown"
 
         sector_agg[sector]["value"] += v
         sector_agg[sector]["count"] += 1
