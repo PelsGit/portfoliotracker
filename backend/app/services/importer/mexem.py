@@ -30,7 +30,13 @@ def _parse_decimal(value: str | None) -> Decimal | None:
 
 
 def _parse_datetime(dt_str: str | None) -> datetime | None:
-    """Parse IB/MEXEM datetime strings: 'YYYYMMDD;HH:MM:SS' or 'YYYYMMDD'."""
+    """Parse IB/MEXEM datetime strings.
+
+    Observed formats:
+      'YYYYMMDD;HHMMSS'   — actual MEXEM exports (no colons in time)
+      'YYYYMMDD;HH:MM:SS' — documented format (colons in time)
+      'YYYYMMDD'          — date-only fallback
+    """
     if not dt_str:
         return None
     s = dt_str.strip()
@@ -38,7 +44,11 @@ def _parse_datetime(dt_str: str | None) -> datetime | None:
         return None
     try:
         if ";" in s:
-            return datetime.strptime(s, "%Y%m%d;%H:%M:%S").replace(tzinfo=timezone.utc)
+            date_part, time_part = s.split(";", 1)
+            if ":" in time_part:
+                return datetime.strptime(f"{date_part};{time_part}", "%Y%m%d;%H:%M:%S").replace(tzinfo=timezone.utc)
+            else:
+                return datetime.strptime(f"{date_part};{time_part}", "%Y%m%d;%H%M%S").replace(tzinfo=timezone.utc)
         return datetime.strptime(s, "%Y%m%d").replace(tzinfo=timezone.utc)
     except ValueError:
         return None
@@ -90,8 +100,10 @@ def parse_mexem_xml(file_content: bytes | str) -> list[dict]:
             quantity = -quantity
 
         price = _parse_decimal(trade.get("tradePrice"))
-        # tradeMoney: negative for buys (cash out), positive for sells (cash in)
-        local_value = _parse_decimal(trade.get("tradeMoney"))
+        # MEXEM tradeMoney: positive for buys, negative for sells.
+        # Negate to match DEGIRO convention (negative=buy/cash out, positive=sell/cash in).
+        _trade_money = _parse_decimal(trade.get("tradeMoney"))
+        local_value = -_trade_money if _trade_money is not None else None
         commission = _parse_decimal(trade.get("ibCommission"))  # usually negative
         local_currency = trade.get("currency", "").strip() or None
 

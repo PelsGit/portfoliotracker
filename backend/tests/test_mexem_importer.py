@@ -28,6 +28,8 @@ def _wrap(trade_xml: str) -> str:
 
 
 # One USD buy: 10 shares of AAPL at 185.50 USD, commission -1.00 USD, fxRateToBase 0.92
+# Real MEXEM: tradeMoney is POSITIVE for buys (negated by parser → local_value = -1855.00)
+# dateTime uses no-colon HHMMSS format as seen in real exports
 SAMPLE_BUY_TRADE = """
         <Trade
           accountId="U12345678"
@@ -40,12 +42,12 @@ SAMPLE_BUY_TRADE = """
           ibOrderID="999111"
           reportDate="20240115"
           tradeDate="20240115"
-          dateTime="20240115;09:30:00"
+          dateTime="20240115;093000"
           exchange="NASDAQ"
           quantity="10"
           tradePrice="185.50"
-          tradeMoney="-1855.00"
-          proceeds="1855.00"
+          tradeMoney="1855.00"
+          proceeds="-1855.00"
           ibCommission="-1.00"
           ibCommissionCurrency="USD"
           netCash="-1856.00"
@@ -55,7 +57,8 @@ SAMPLE_BUY_TRADE = """
         />
 """
 
-# One USD sell: -5 shares of AAPL at 200.00 USD, commission -1.00 USD
+# One USD sell: -5 shares of AAPL at 200.00 USD, commission -0.80 USD
+# Real MEXEM: tradeMoney is NEGATIVE for sells (negated by parser → local_value = +1000.00)
 SAMPLE_SELL_TRADE = """
         <Trade
           accountId="U12345678"
@@ -68,12 +71,12 @@ SAMPLE_SELL_TRADE = """
           ibOrderID="999222"
           reportDate="20240120"
           tradeDate="20240120"
-          dateTime="20240120;10:15:00"
+          dateTime="20240120;101500"
           exchange="NASDAQ"
           quantity="-5"
           tradePrice="200.00"
-          tradeMoney="1000.00"
-          proceeds="-1000.00"
+          tradeMoney="-1000.00"
+          proceeds="1000.00"
           ibCommission="-0.80"
           ibCommissionCurrency="USD"
           netCash="999.20"
@@ -84,6 +87,7 @@ SAMPLE_SELL_TRADE = """
 """
 
 # EUR-denominated ETF buy (VWCE.DE)
+# Real MEXEM: tradeMoney positive for buy
 SAMPLE_EUR_TRADE = """
         <Trade
           accountId="U12345678"
@@ -96,12 +100,12 @@ SAMPLE_EUR_TRADE = """
           ibOrderID="999333"
           reportDate="20240201"
           tradeDate="20240201"
-          dateTime="20240201;14:00:00"
+          dateTime="20240201;140000"
           exchange="XETRA"
           quantity="5"
           tradePrice="110.20"
-          tradeMoney="-551.00"
-          proceeds="551.00"
+          tradeMoney="551.00"
+          proceeds="-551.00"
           ibCommission="-2.00"
           ibCommissionCurrency="EUR"
           netCash="-553.00"
@@ -224,6 +228,12 @@ class TestParseMexemXmlBuy:
 
     def test_date_is_utc(self):
         rows = parse_mexem_xml(_wrap(SAMPLE_BUY_TRADE))
+        assert rows[0]["date"] == datetime(2024, 1, 15, 9, 30, 0, tzinfo=timezone.utc)
+
+    def test_date_with_colon_format(self):
+        # Ensure the colon-separated time format also works
+        xml = _wrap(SAMPLE_BUY_TRADE.replace('dateTime="20240115;093000"', 'dateTime="20240115;09:30:00"'))
+        rows = parse_mexem_xml(xml)
         assert rows[0]["date"] == datetime(2024, 1, 15, 9, 30, 0, tzinfo=timezone.utc)
 
 
