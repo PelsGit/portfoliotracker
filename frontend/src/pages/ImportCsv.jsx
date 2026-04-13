@@ -2,7 +2,29 @@ import { useCallback, useState } from 'react';
 import api from '../api/client';
 import { formatCurrency, formatNumber } from '../utils/format';
 
+const BROKERS = [
+  {
+    id: 'degiro',
+    label: 'DEGIRO',
+    accept: '.csv',
+    hint: 'Account CSV (Inbox → Activity → Account)',
+    previewUrl: '/api/import/degiro/preview',
+    confirmUrl: '/api/import/degiro/confirm',
+    fileType: 'CSV',
+  },
+  {
+    id: 'mexem',
+    label: 'MEXEM',
+    accept: '.xml',
+    hint: 'Activity Flex Query XML (Performance & Reports → Flex Queries)',
+    previewUrl: '/api/import/mexem/preview',
+    confirmUrl: '/api/import/mexem/confirm',
+    fileType: 'XML',
+  },
+];
+
 export default function ImportCsv() {
+  const [broker, setBroker] = useState(BROKERS[0]);
   const [state, setState] = useState('upload'); // upload | preview | confirmed
   const [file, setFile] = useState(null);
   const [transactions, setTransactions] = useState([]);
@@ -11,24 +33,36 @@ export default function ImportCsv() {
   const [loading, setLoading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
-  const handleFile = useCallback(async (selectedFile) => {
-    setFile(selectedFile);
+  const handleBrokerChange = useCallback((selected) => {
+    setBroker(selected);
+    setState('upload');
+    setFile(null);
+    setTransactions([]);
+    setResult(null);
     setError(null);
-    setLoading(true);
-
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-
-    try {
-      const response = await api.post('/api/import/degiro/preview', formData);
-      setTransactions(response.data.transactions);
-      setState('preview');
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to parse CSV');
-    } finally {
-      setLoading(false);
-    }
   }, []);
+
+  const handleFile = useCallback(
+    async (selectedFile) => {
+      setFile(selectedFile);
+      setError(null);
+      setLoading(true);
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      try {
+        const response = await api.post(broker.previewUrl, formData);
+        setTransactions(response.data.transactions);
+        setState('preview');
+      } catch (err) {
+        setError(err.response?.data?.detail || `Failed to parse ${broker.fileType}`);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [broker]
+  );
 
   const handleDrop = useCallback(
     (e) => {
@@ -66,7 +100,7 @@ export default function ImportCsv() {
     formData.append('file', file);
 
     try {
-      const response = await api.post('/api/import/degiro/confirm', formData);
+      const response = await api.post(broker.confirmUrl, formData);
       setResult(response.data);
       setState('confirmed');
     } catch (err) {
@@ -74,7 +108,7 @@ export default function ImportCsv() {
     } finally {
       setLoading(false);
     }
-  }, [file]);
+  }, [file, broker]);
 
   const handleReset = useCallback(() => {
     setState('upload');
@@ -86,7 +120,19 @@ export default function ImportCsv() {
 
   return (
     <div>
-      <h1 className="page-title">Import CSV</h1>
+      <h1 className="page-title">Import</h1>
+
+      <div className="broker-selector">
+        {BROKERS.map((b) => (
+          <button
+            key={b.id}
+            className={`broker-btn${broker.id === b.id ? ' broker-btn--active' : ''}`}
+            onClick={() => handleBrokerChange(b)}
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
 
       {error && <div className="error-banner">{error}</div>}
 
@@ -97,13 +143,14 @@ export default function ImportCsv() {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
         >
-          <p>Drag and drop your DEGIRO CSV file here</p>
+          <p>Drag and drop your {broker.label} {broker.fileType} file here</p>
+          <p className="drop-zone-hint">{broker.hint}</p>
           <p className="drop-zone-sub">or</p>
           <label className="btn-primary">
             Browse files
             <input
               type="file"
-              accept=".csv"
+              accept={broker.accept}
               onChange={handleInputChange}
               hidden
             />
@@ -182,6 +229,33 @@ export default function ImportCsv() {
           margin-bottom: calc(var(--spacing) * 3);
         }
 
+        .broker-selector {
+          display: flex;
+          gap: var(--spacing);
+          margin-bottom: calc(var(--spacing) * 3);
+        }
+
+        .broker-btn {
+          background: var(--bg-card);
+          color: var(--text-secondary);
+          border: var(--border-card);
+          border-radius: var(--radius);
+          padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3);
+          font-size: 13px;
+          cursor: pointer;
+          transition: color 0.15s, border-color 0.15s;
+        }
+
+        .broker-btn:hover {
+          color: var(--text-primary);
+        }
+
+        .broker-btn--active {
+          color: var(--accent-blue);
+          border-color: var(--accent-blue);
+          background: rgba(108, 140, 255, 0.08);
+        }
+
         .error-banner {
           background: var(--negative-bg);
           color: var(--negative);
@@ -204,6 +278,12 @@ export default function ImportCsv() {
         .drop-zone--active {
           border-color: var(--accent-blue);
           background: rgba(108, 140, 255, 0.05);
+        }
+
+        .drop-zone-hint {
+          font-size: 11px;
+          color: var(--text-muted);
+          margin: calc(var(--spacing) * 0.5) 0 var(--spacing);
         }
 
         .drop-zone-sub {
