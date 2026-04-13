@@ -28,6 +28,12 @@ description: Git workflow and branching rules
 5. `git push origin feature/your-feature` — push branch
 6. Open a PR when the feature is complete — see cicd.md for the full PR workflow
 
+## After every task
+
+- Run `git status` — stage and commit ALL modified files (including docs, rules, config)
+- Push the branch immediately after committing
+- Never leave unstaged changes at end of a task
+
 ## Never do
 
 - NEVER force push
