@@ -10,15 +10,17 @@ describe('ImportCsv', () => {
         <ImportCsv />
       </MemoryRouter>
     );
-    expect(screen.getByText('Import CSV')).toBeInTheDocument();
+    expect(screen.getByText('Import')).toBeInTheDocument();
   });
 
-  it('renders drop zone', () => {
+  it('renders broker selector and drop zone', () => {
     render(
       <MemoryRouter>
         <ImportCsv />
       </MemoryRouter>
     );
+    expect(screen.getByText('DEGIRO')).toBeInTheDocument();
+    expect(screen.getByText('MEXEM')).toBeInTheDocument();
     expect(screen.getByText('Drag and drop your DEGIRO CSV file here')).toBeInTheDocument();
     expect(screen.getByText('Browse files')).toBeInTheDocument();
   });
