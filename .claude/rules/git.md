@@ -10,6 +10,7 @@ description: Git workflow and branching rules
 - Create `feature/short-description` branches for new features
 - Create `bugfix/short-description` branches for bug fixes
 - Branch names must be lowercase with hyphens only
+- Before every commit, check the current branch name matches the work type — if fixing a bug on a `feature/` branch, create a new `bugfix/` branch first
 
 ## Commits
 
