@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
+from app.schemas.dividend import DividendOut
+
 
 class TransactionOut(BaseModel):
     id: int | None = None
@@ -26,9 +28,13 @@ class TransactionOut(BaseModel):
 class ImportPreviewResponse(BaseModel):
     count: int
     transactions: list[TransactionOut]
+    dividend_count: int = 0
+    dividends: list[DividendOut] = []
 
 
 class ImportConfirmResponse(BaseModel):
     imported: int
     skipped: int
     transactions: list[TransactionOut]
+    dividends_imported: int = 0
+    dividends_skipped: int = 0
