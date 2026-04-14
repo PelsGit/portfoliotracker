@@ -27,9 +27,11 @@ def _startup_fetch_benchmarks() -> None:
 
 
 def _startup_fetch_earnings() -> None:
+    logger.info("Earnings fetch started (background)")
     db = SessionLocal()
     try:
         fetch_earnings_dates(db)
+        logger.info("Earnings fetch completed")
     except Exception:
         logger.exception("Startup earnings fetch failed")
     finally:

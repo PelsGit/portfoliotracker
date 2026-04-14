@@ -85,6 +85,48 @@ def test_fetch_earnings_logs_exception_on_yfinance_failure(db_session):
     assert "Failed to fetch earnings for" in args[0]
 
 
+def test_fetch_earnings_handles_invalid_isin_at_construction():
+    """ValueError raised by yf.Ticker(isin) itself (e.g. GB ISINs that fail checksum)
+    must be caught, logged, and must not abort fetching the remaining ISINs."""
+    import pandas as pd
+    from decimal import Decimal
+
+    ok_df = pd.DataFrame(
+        index=pd.to_datetime(["2026-06-01"], utc=True),
+        data={"EPS Estimate": [1.0]},
+    )
+
+    def make_ticker(isin):
+        if isin == "GB00B10RZP78":
+            # Simulates yfinance raising at Ticker.__init__ for unsupported ISINs
+            raise ValueError(f"Invalid ISIN number: {isin}")
+        t = MagicMock()
+        type(t).earnings_dates = PropertyMock(return_value=ok_df)
+        return t
+
+    # Mock DB: return two holdings, track DB writes
+    mock_query = MagicMock()
+    mock_query.all.return_value = [
+        ("GB00B10RZP78", "UK Corp", Decimal("10")),
+        ("US1234567890", "US Corp", Decimal("5")),
+    ]
+    stored = []
+    mock_db = MagicMock()
+    mock_db.query.return_value = mock_query
+    mock_db.execute.side_effect = lambda *a, **kw: stored.append(a[0]) or MagicMock()
+
+    with patch("yfinance.Ticker", side_effect=make_ticker), \
+         patch("app.services.earnings.logger") as mock_logger:
+        fetch_earnings_dates(mock_db)
+
+    # GB ISIN failure was logged, not re-raised
+    logged_isins = [call[0][1] for call in mock_logger.exception.call_args_list]
+    assert "GB00B10RZP78" in logged_isins
+
+    # US ISIN still produced a DB write despite GB failure
+    assert len(stored) == 1
+
+
 def test_fetch_earnings_continues_after_per_isin_failure():
     """When one ISIN fails, the rest are still processed."""
     import pandas as pd
