@@ -8,6 +8,8 @@ jobs:
   backend-tests:
     name: Backend Tests
     runs-on: self-hosted
+    env:
+      COMPOSE_PROJECT_NAME: portfoliotracker-${{ github.run_id }}-backend
     steps:
       - name: Fix workspace permissions
         run: docker run --rm -v "$(pwd):/workspace" alpine sh -c "chown -R $(id -u):$(id -g) /workspace" || true
@@ -42,6 +44,8 @@ jobs:
   frontend-tests:
     name: Frontend Tests
     runs-on: self-hosted
+    env:
+      COMPOSE_PROJECT_NAME: portfoliotracker-${{ github.run_id }}-frontend
     steps:
       - name: Fix workspace permissions
         run: docker run --rm -v "$(pwd):/workspace" alpine sh -c "chown -R $(id -u):$(id -g) /workspace" || true
@@ -58,6 +62,8 @@ jobs:
   lint:
     name: Lint
     runs-on: self-hosted
+    env:
+      COMPOSE_PROJECT_NAME: portfoliotracker-${{ github.run_id }}-lint
     steps:
       - name: Fix workspace permissions
         run: docker run --rm -v "$(pwd):/workspace" alpine sh -c "chown -R $(id -u):$(id -g) /workspace" || true
