@@ -6,7 +6,6 @@ const navItems = [
   { path: '/breakdown', label: 'Breakdown' },
   { path: '/performance', label: 'Performance' },
   { path: '/calendar', label: 'Calendar' },
-  { path: '/dividends', label: 'Dividends' },
   { path: '/import', label: 'Import Broker Actions' },
 ];
 

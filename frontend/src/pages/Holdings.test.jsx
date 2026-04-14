@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import Holdings from './Holdings';
@@ -9,7 +9,14 @@ vi.mock('../api/client', () => ({
 
 import api from '../api/client';
 
-const emptySummary = { by_holding: [], total_eur: '0', this_year_eur: '0', monthly_avg_eur: '0', paying_holdings: 0, monthly: [] };
+const emptySummary = {
+  by_holding: [],
+  total_eur: '0',
+  this_year_eur: '0',
+  monthly_avg_eur: '0',
+  paying_holdings: 0,
+  monthly: [],
+};
 
 describe('Holdings', () => {
   beforeEach(() => {
@@ -19,21 +26,22 @@ describe('Holdings', () => {
     });
   });
 
-  it('renders page title', () => {
+  it('renders Holdings and Dividends tab buttons', () => {
     render(<MemoryRouter><Holdings /></MemoryRouter>);
-    expect(screen.getByText('Holdings')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Holdings' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Dividends' })).toBeInTheDocument();
   });
 
-  it('shows empty state when no holdings', async () => {
+  it('shows holdings empty state by default', async () => {
     render(<MemoryRouter><Holdings /></MemoryRouter>);
     expect(
       await screen.findByText('No holdings yet. Import transactions to see your positions.')
     ).toBeInTheDocument();
   });
 
-  it('renders dividends segment header', () => {
+  it('switches to dividends tab on click', async () => {
     render(<MemoryRouter><Holdings /></MemoryRouter>);
-    expect(screen.getByText('Dividends')).toBeInTheDocument();
-    expect(screen.getByText('Total received per holding')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Dividends' }));
+    expect(await screen.findByText('No dividend data yet. Import a DeGiro CSV to get started.')).toBeInTheDocument();
   });
 });

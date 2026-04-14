@@ -2,7 +2,6 @@ import { Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import Breakdown from './pages/Breakdown';
 import Calendar from './pages/Calendar';
-import Dividends from './pages/Dividends';
 import Holdings from './pages/Holdings';
 import ImportCsv from './pages/ImportCsv';
 import Overview from './pages/Overview';
@@ -17,8 +16,7 @@ export default function App() {
         <Route path="/breakdown" element={<Breakdown />} />
         <Route path="/performance" element={<Performance />} />
         <Route path="/calendar" element={<Calendar />} />
-        <Route path="/dividends" element={<Dividends />} />
-        <Route path="/import" element={<ImportCsv />} />
+<Route path="/import" element={<ImportCsv />} />
       </Route>
     </Routes>
   );

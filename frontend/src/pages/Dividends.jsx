@@ -38,7 +38,7 @@ function MonthlyChart({ monthly }) {
   );
 }
 
-export default function Dividends() {
+export default function Dividends({ standalone = true }) {
   const [summary, setSummary] = useState(null);
   const [history, setHistory] = useState([]);
   const [loadingS, setLoadingS] = useState(true);
@@ -61,7 +61,7 @@ export default function Dividends() {
 
   return (
     <div>
-      <h1 className="page-title">Dividends</h1>
+      {standalone && <h1 className="page-title">Dividends</h1>}
 
       {/* Metric cards */}
       <div className="div-cards">
