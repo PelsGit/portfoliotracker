@@ -6,7 +6,7 @@ const navItems = [
   { path: '/breakdown', label: 'Breakdown' },
   { path: '/performance', label: 'Performance' },
   { path: '/calendar', label: 'Calendar' },
-  { path: '/import', label: 'Import CSV' },
+  { path: '/import', label: 'Import Broker Actions' },
 ];
 
 export default function Sidebar() {

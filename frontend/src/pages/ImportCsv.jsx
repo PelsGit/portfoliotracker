@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import api from '../api/client';
 import { formatCurrency, formatNumber } from '../utils/format';
 
@@ -7,21 +7,55 @@ const BROKERS = [
     id: 'degiro',
     label: 'DEGIRO',
     accept: '.csv',
-    hint: 'Account CSV (Inbox → Activity → Account)',
     previewUrl: '/api/import/degiro/preview',
     confirmUrl: '/api/import/degiro/confirm',
     fileType: 'CSV',
+    color: '#00b057',
+    steps: [
+      'Log in at degiro.nl',
+      'Navigate to Inbox → Activity',
+      'Click the Account tab',
+      'Set your desired date range',
+      'Click Export and download the CSV file',
+    ],
   },
   {
     id: 'mexem',
     label: 'MEXEM',
     accept: '.xml',
-    hint: 'Activity Flex Query XML (Performance & Reports → Flex Queries)',
     previewUrl: '/api/import/mexem/preview',
     confirmUrl: '/api/import/mexem/confirm',
     fileType: 'XML',
+    color: '#4f8ef7',
+    steps: [
+      'Log in at mexem.com',
+      'Go to Performance & Reports',
+      'Open Flex Queries',
+      'Run your Activity Flex Query',
+      'Download the XML file',
+    ],
   },
 ];
+
+function BrokerIcon({ broker, size = 40 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="40" height="40" rx="8" fill={broker.color} fillOpacity="0.15" />
+      <text
+        x="50%"
+        y="50%"
+        dominantBaseline="central"
+        textAnchor="middle"
+        fill={broker.color}
+        fontSize="16"
+        fontWeight="600"
+        fontFamily="system-ui, -apple-system, sans-serif"
+      >
+        {broker.label[0]}
+      </text>
+    </svg>
+  );
+}
 
 export default function ImportCsv() {
   const [broker, setBroker] = useState(BROKERS[0]);
@@ -32,6 +66,23 @@ export default function ImportCsv() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const res = await api.get('/api/transactions');
+      setHistory(res.data);
+    } catch {
+      // silently ignore — history is non-critical
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const handleBrokerChange = useCallback((selected) => {
     setBroker(selected);
@@ -103,12 +154,14 @@ export default function ImportCsv() {
       const response = await api.post(broker.confirmUrl, formData);
       setResult(response.data);
       setState('confirmed');
+      setHistoryLoading(true);
+      loadHistory();
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to import transactions');
     } finally {
       setLoading(false);
     }
-  }, [file, broker]);
+  }, [file, broker, loadHistory]);
 
   const handleReset = useCallback(() => {
     setState('upload');
@@ -120,18 +173,38 @@ export default function ImportCsv() {
 
   return (
     <div>
-      <h1 className="page-title">Import</h1>
+      <h1 className="page-title">Import Broker Actions</h1>
 
-      <div className="broker-selector">
+      {/* Broker cards */}
+      <div className="broker-cards">
         {BROKERS.map((b) => (
           <button
             key={b.id}
-            className={`broker-btn${broker.id === b.id ? ' broker-btn--active' : ''}`}
+            className={`broker-card${broker.id === b.id ? ' broker-card--active' : ''}`}
             onClick={() => handleBrokerChange(b)}
+            style={broker.id === b.id ? { borderColor: b.color } : {}}
           >
-            {b.label}
+            <BrokerIcon broker={b} />
+            <span className="broker-card-label">{b.label}</span>
+            <span className="broker-card-type">{b.fileType}</span>
           </button>
         ))}
+      </div>
+
+      {/* Step-by-step guide */}
+      <div className="guide-card">
+        <div className="guide-header">
+          <BrokerIcon broker={broker} size={24} />
+          <span className="guide-title">How to export from {broker.label}</span>
+        </div>
+        <ol className="guide-steps">
+          {broker.steps.map((step, i) => (
+            <li key={i} className="guide-step">
+              <span className="guide-step-num">{i + 1}</span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
       </div>
 
       {error && <div className="error-banner">{error}</div>}
@@ -144,7 +217,6 @@ export default function ImportCsv() {
           onDragLeave={handleDragLeave}
         >
           <p>Drag and drop your {broker.label} {broker.fileType} file here</p>
-          <p className="drop-zone-hint">{broker.hint}</p>
           <p className="drop-zone-sub">or</p>
           <label className="btn-primary">
             Browse files
@@ -164,14 +236,8 @@ export default function ImportCsv() {
           <div className="preview-header">
             <span>{transactions.length} transaction(s) found</span>
             <div>
-              <button className="btn-secondary" onClick={handleReset}>
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                onClick={handleConfirm}
-                disabled={loading}
-              >
+              <button className="btn-secondary" onClick={handleReset}>Cancel</button>
+              <button className="btn-primary" onClick={handleConfirm} disabled={loading}>
                 {loading ? 'Importing...' : 'Confirm Import'}
               </button>
             </div>
@@ -212,14 +278,51 @@ export default function ImportCsv() {
       {state === 'confirmed' && result && (
         <div className="success-card">
           <h2>Import complete</h2>
-          <p>
-            {result.imported} transaction(s) imported, {result.skipped} skipped.
-          </p>
-          <button className="btn-primary" onClick={handleReset}>
-            Import another file
-          </button>
+          <p>{result.imported} transaction(s) imported, {result.skipped} skipped.</p>
+          <button className="btn-primary" onClick={handleReset}>Import another file</button>
         </div>
       )}
+
+      {/* Transaction history */}
+      <div className="history-section">
+        <h2 className="history-title">All Imported Transactions</h2>
+        {historyLoading ? (
+          <p className="text-muted">Loading...</p>
+        ) : history.length === 0 ? (
+          <p className="text-muted">No transactions imported yet.</p>
+        ) : (
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Product</th>
+                  <th>ISIN</th>
+                  <th>Qty</th>
+                  <th>Price</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((txn) => (
+                  <tr key={txn.id}>
+                    <td>{new Date(txn.date).toLocaleDateString('nl-NL')}</td>
+                    <td>{txn.product_name}</td>
+                    <td className="text-muted">{txn.isin}</td>
+                    <td className={Number(txn.quantity) < 0 ? 'text-negative' : ''}>
+                      {formatNumber(txn.quantity, 0)}
+                    </td>
+                    <td>{formatCurrency(txn.price)}</td>
+                    <td className={Number(txn.total) < 0 ? 'text-negative' : 'text-positive'}>
+                      {formatCurrency(txn.total)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <style>{`
         .page-title {
@@ -229,31 +332,95 @@ export default function ImportCsv() {
           margin-bottom: calc(var(--spacing) * 3);
         }
 
-        .broker-selector {
+        .broker-cards {
           display: flex;
-          gap: var(--spacing);
+          gap: calc(var(--spacing) * 2);
           margin-bottom: calc(var(--spacing) * 3);
         }
 
-        .broker-btn {
+        .broker-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: var(--spacing);
           background: var(--bg-card);
-          color: var(--text-secondary);
-          border: var(--border-card);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: var(--radius);
-          padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3);
-          font-size: 13px;
+          padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 4);
           cursor: pointer;
-          transition: color 0.15s, border-color 0.15s;
+          transition: border-color 0.15s, background 0.15s;
+          min-width: 110px;
         }
 
-        .broker-btn:hover {
+        .broker-card:hover {
+          background: rgba(255, 255, 255, 0.03);
+        }
+
+        .broker-card--active {
+          background: rgba(255, 255, 255, 0.04);
+        }
+
+        .broker-card-label {
+          font-size: 13px;
+          font-weight: 600;
           color: var(--text-primary);
         }
 
-        .broker-btn--active {
-          color: var(--accent-blue);
-          border-color: var(--accent-blue);
-          background: rgba(108, 140, 255, 0.08);
+        .broker-card-type {
+          font-size: 10px;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .guide-card {
+          background: var(--bg-card);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: var(--radius);
+          padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3);
+          margin-bottom: calc(var(--spacing) * 3);
+        }
+
+        .guide-header {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing);
+          margin-bottom: calc(var(--spacing) * 2);
+        }
+
+        .guide-title {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-primary);
+        }
+
+        .guide-steps {
+          list-style: none;
+          display: flex;
+          flex-direction: column;
+          gap: calc(var(--spacing) * 1.25);
+        }
+
+        .guide-step {
+          display: flex;
+          align-items: center;
+          gap: calc(var(--spacing) * 1.5);
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+
+        .guide-step-num {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.06);
+          color: var(--text-muted);
+          font-size: 11px;
+          font-weight: 600;
+          flex-shrink: 0;
         }
 
         .error-banner {
@@ -273,17 +440,12 @@ export default function ImportCsv() {
           text-align: center;
           color: var(--text-secondary);
           cursor: pointer;
+          margin-bottom: calc(var(--spacing) * 4);
         }
 
         .drop-zone--active {
           border-color: var(--accent-blue);
           background: rgba(108, 140, 255, 0.05);
-        }
-
-        .drop-zone-hint {
-          font-size: 11px;
-          color: var(--text-muted);
-          margin: calc(var(--spacing) * 0.5) 0 var(--spacing);
         }
 
         .drop-zone-sub {
@@ -326,7 +488,7 @@ export default function ImportCsv() {
         .btn-secondary {
           background: transparent;
           color: var(--text-secondary);
-          border: var(--border-card);
+          border: 1px solid rgba(255, 255, 255, 0.12);
           border-radius: var(--radius);
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3);
           font-size: 13px;
@@ -337,9 +499,10 @@ export default function ImportCsv() {
 
         .table-wrapper {
           background: var(--bg-card);
-          border: var(--border-card);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: var(--radius);
           overflow-x: auto;
+          margin-bottom: calc(var(--spacing) * 4);
         }
 
         .data-table {
@@ -354,13 +517,17 @@ export default function ImportCsv() {
           text-transform: uppercase;
           letter-spacing: 0.5px;
           color: var(--text-muted);
-          border-bottom: var(--border-card);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
 
         .data-table td {
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
-          border-bottom: var(--border-card);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
           font-size: 13px;
+        }
+
+        .data-table tr:last-child td {
+          border-bottom: none;
         }
 
         .text-muted { color: var(--text-muted); }
@@ -369,10 +536,11 @@ export default function ImportCsv() {
 
         .success-card {
           background: var(--bg-card);
-          border: var(--border-card);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: var(--radius);
           padding: calc(var(--spacing) * 6);
           text-align: center;
+          margin-bottom: calc(var(--spacing) * 4);
         }
 
         .success-card h2 {
@@ -385,6 +553,17 @@ export default function ImportCsv() {
         .success-card p {
           color: var(--text-secondary);
           margin-bottom: calc(var(--spacing) * 3);
+        }
+
+        .history-section {
+          margin-top: calc(var(--spacing) * 2);
+        }
+
+        .history-title {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--text-primary);
+          margin-bottom: calc(var(--spacing) * 2);
         }
       `}</style>
     </div>

@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, PropertyMock, patch
 
 from app.models.earnings import EarningsDate
 from app.models.transaction import Transaction
-from app.services.earnings import get_earnings
+from app.services.earnings import fetch_earnings_dates, get_earnings
 
 
 def _buy(db, isin="US1234567890", product="TEST CORP", quantity=10, total=-1000.0):
@@ -66,6 +67,62 @@ def test_get_earnings_sorted_by_date(db_session):
     result = get_earnings(db_session)
     dates = [r["earnings_date"] for r in result]
     assert dates == sorted(dates)
+
+
+def test_fetch_earnings_logs_exception_on_yfinance_failure(db_session):
+    """yfinance failure must be logged — not silently swallowed."""
+    _buy(db_session, isin="US1234567890", product="Fail Corp")
+
+    mock_ticker = MagicMock()
+    type(mock_ticker).earnings_dates = PropertyMock(side_effect=RuntimeError("network timeout"))
+
+    with patch("yfinance.Ticker", return_value=mock_ticker), \
+         patch("app.services.earnings.logger") as mock_logger:
+        fetch_earnings_dates(db_session)
+
+    mock_logger.exception.assert_called_once()
+    args = mock_logger.exception.call_args[0]
+    assert "Failed to fetch earnings for" in args[0]
+
+
+def test_fetch_earnings_continues_after_per_isin_failure():
+    """When one ISIN fails, the rest are still processed."""
+    import pandas as pd
+    from decimal import Decimal
+
+    ok_df = pd.DataFrame(
+        index=pd.to_datetime(["2026-06-01"], utc=True),
+        data={"EPS Estimate": [1.0]},
+    )
+
+    def make_ticker(isin):
+        t = MagicMock()
+        if isin == "US1111111111":
+            type(t).earnings_dates = PropertyMock(side_effect=RuntimeError("boom"))
+        else:
+            type(t).earnings_dates = PropertyMock(return_value=ok_df)
+        return t
+
+    # Fake query chain: return two holdings from _current_holding_isins
+    mock_query = MagicMock()
+    mock_query.all.return_value = [
+        ("US1111111111", "Fail Corp", Decimal("10")),
+        ("US2222222222", "OK Corp", Decimal("5")),
+    ]
+    stored = []
+    mock_db = MagicMock()
+    mock_db.query.return_value = mock_query
+    mock_db.execute.side_effect = lambda *a, **kw: stored.append(a[0]) or MagicMock()
+
+    with patch("yfinance.Ticker", side_effect=make_ticker), \
+         patch("app.services.earnings.logger") as mock_logger:
+        fetch_earnings_dates(mock_db)
+
+    # Failing ISIN logged, not re-raised
+    mock_logger.exception.assert_called_once()
+
+    # Successful ISIN still produced a DB write
+    assert len(stored) == 1
 
 
 def test_earnings_endpoint(client, db_session):

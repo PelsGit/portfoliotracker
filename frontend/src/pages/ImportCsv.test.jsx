@@ -10,7 +10,7 @@ describe('ImportCsv', () => {
         <ImportCsv />
       </MemoryRouter>
     );
-    expect(screen.getByText('Import')).toBeInTheDocument();
+    expect(screen.getByText('Import Broker Actions')).toBeInTheDocument();
   });
 
   it('renders broker selector and drop zone', () => {

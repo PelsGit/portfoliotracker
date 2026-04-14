@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.cash_balance import CashBalance
+from app.models.transaction import Transaction
 from app.schemas.transaction import ImportConfirmResponse, ImportPreviewResponse, TransactionOut
 from app.services.importer.degiro import import_degiro_transactions, parse_account_csv, parse_cash_balance
 from app.services.importer.mexem import parse_mexem_cash_balance, parse_mexem_xml
@@ -13,6 +14,11 @@ from app.services.prices.yfinance_fetcher import fetch_prices_for_isins
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+@router.get("/transactions", response_model=list[TransactionOut])
+def list_transactions(db: Session = Depends(get_db)):
+    return db.query(Transaction).order_by(Transaction.date.desc()).all()
 
 
 @router.post("/import/degiro/preview", response_model=ImportPreviewResponse)
