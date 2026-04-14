@@ -21,7 +21,7 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Holdings' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Breakdown' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Performance' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Import CSV' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Import Broker Actions' })).toBeInTheDocument();
   });
 
   it('renders overview page by default', () => {
