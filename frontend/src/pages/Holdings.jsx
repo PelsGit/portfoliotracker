@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
-import api from '../api/client';
+import { useState } from 'react';
 import HoldingsTable from '../components/HoldingsTable';
+import Dividends from './Dividends';
+import { useEffect } from 'react';
+import api from '../api/client';
 
 export default function Holdings() {
+  const [activeTab, setActiveTab] = useState('holdings');
   const [holdings, setHoldings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,24 +19,67 @@ export default function Holdings() {
 
   return (
     <div>
-      <h1 className="page-title">Holdings</h1>
+      {/* Tab bar */}
+      <div className="tab-bar">
+        <button
+          className={`tab-btn${activeTab === 'holdings' ? ' tab-btn--active' : ''}`}
+          onClick={() => setActiveTab('holdings')}
+        >
+          Holdings
+        </button>
+        <button
+          className={`tab-btn${activeTab === 'dividends' ? ' tab-btn--active' : ''}`}
+          onClick={() => setActiveTab('dividends')}
+        >
+          Dividends
+        </button>
+      </div>
 
-      {loading ? (
-        <p className="loading-text">Loading...</p>
-      ) : !holdings.length ? (
-        <div className="empty-state">
-          <p>No holdings yet. Import transactions to see your positions.</p>
-        </div>
-      ) : (
-        <HoldingsTable holdings={holdings} />
+      {/* Holdings tab */}
+      {activeTab === 'holdings' && (
+        <>
+          {loading ? (
+            <p className="loading-text">Loading...</p>
+          ) : !holdings.length ? (
+            <div className="empty-state">
+              <p>No holdings yet. Import transactions to see your positions.</p>
+            </div>
+          ) : (
+            <HoldingsTable holdings={holdings} />
+          )}
+        </>
       )}
 
+      {/* Dividends tab */}
+      {activeTab === 'dividends' && <Dividends standalone={false} />}
+
       <style>{`
-        .page-title {
+        .tab-bar {
+          display: flex;
+          gap: 2px;
+          margin-bottom: calc(var(--spacing) * 3);
+        }
+
+        .tab-btn {
+          background: none;
+          border: none;
+          padding: 4px 0;
+          margin-right: calc(var(--spacing) * 2);
           font-size: 17px;
           font-weight: 500;
+          color: var(--text-muted);
+          cursor: pointer;
+          border-bottom: 2px solid transparent;
+          line-height: 1.4;
+        }
+
+        .tab-btn--active {
           color: var(--text-primary);
-          margin-bottom: calc(var(--spacing) * 3);
+          border-bottom-color: var(--accent-blue, #6c8cff);
+        }
+
+        .tab-btn:hover:not(.tab-btn--active) {
+          color: var(--text-secondary);
         }
 
         .loading-text {

@@ -207,6 +207,186 @@ def parse_cash_balance(file_content: bytes | str) -> Decimal | None:
     return latest_balance
 
 
+def parse_dividends_csv(file_content: bytes | str) -> list[dict]:
+    """
+    Parse dividend and withholding tax rows from a DEGIRO Account CSV.
+
+    Dividend rows have no Order Id and Omschrijving == "Dividend".
+    Withholding tax rows have Omschrijving == "Dividendbelasting" and appear
+    on the same (ISIN, date) as the dividend row.
+
+    For foreign-currency dividends a "Valuta Creditering" (or "Valuta Debitering"
+    for tax) row without an FX value carries the EUR equivalent on the same date.
+    EUR-denominated dividends have no accompanying Valuta row — the local amount
+    IS the EUR amount.
+
+    Returns a list of dicts ready for import_degiro_dividends().
+    """
+    raw_rows = _read_rows(file_content)
+
+    # Collect rows without an Order Id
+    no_order_rows = [r for r in raw_rows if len(r) > COL_ORDER_ID and not r[COL_ORDER_ID].strip()]
+
+    # Separate by description type
+    dividend_rows: list[list[str]] = []
+    tax_rows: list[list[str]] = []
+    eur_credit_rows: list[list[str]] = []
+    eur_debit_rows: list[list[str]] = []
+
+    for row in no_order_rows:
+        if len(row) <= COL_SALDO_AMT:
+            continue
+        desc = row[COL_OMSCHRIJVING].strip()
+        if desc == "Dividend":
+            dividend_rows.append(row)
+        elif desc == "Dividendbelasting":
+            tax_rows.append(row)
+        elif (
+            desc.startswith("Valuta Creditering")
+            and row[COL_MUTATIE_CUR].strip() == "EUR"
+            and not row[COL_FX].strip()
+        ):
+            eur_credit_rows.append(row)
+        elif (
+            desc.startswith("Valuta Debitering")
+            and row[COL_MUTATIE_CUR].strip() == "EUR"
+            and not row[COL_FX].strip()
+        ):
+            eur_debit_rows.append(row)
+
+    # Index EUR rows by date string for quick lookup
+    def _date_key(row: list[str]) -> str:
+        return row[COL_DATUM].strip()
+
+    eur_credits_by_date: dict[str, list[list[str]]] = {}
+    for r in eur_credit_rows:
+        eur_credits_by_date.setdefault(_date_key(r), []).append(r)
+
+    eur_debits_by_date: dict[str, list[list[str]]] = {}
+    for r in eur_debit_rows:
+        eur_debits_by_date.setdefault(_date_key(r), []).append(r)
+
+    # Index tax rows by (isin, date)
+    tax_by_isin_date: dict[tuple[str, str], list[list[str]]] = {}
+    for r in tax_rows:
+        key = (r[COL_ISIN].strip(), _date_key(r))
+        tax_by_isin_date.setdefault(key, []).append(r)
+
+    results = []
+    # Track which EUR credit/debit rows have been consumed (by index)
+    used_credits: set[int] = set()
+    used_debits: set[int] = set()
+
+    for div_row in dividend_rows:
+        isin = div_row[COL_ISIN].strip()
+        date_str = _date_key(div_row)
+        product_name = div_row[COL_PRODUCT].strip() or None
+        local_currency = div_row[COL_MUTATIE_CUR].strip()
+        local_amount = parse_dutch_number(div_row[COL_MUTATIE_AMT])
+        if local_amount is None:
+            continue
+
+        # Find gross EUR: match an unused EUR credit row on the same date
+        gross_eur = None
+        if local_currency == "EUR":
+            gross_eur = local_amount
+        else:
+            candidates = eur_credits_by_date.get(date_str, [])
+            for idx, cand in enumerate(candidates):
+                global_idx = id(cand)
+                if global_idx not in used_credits:
+                    gross_eur = parse_dutch_number(cand[COL_MUTATIE_AMT])
+                    used_credits.add(global_idx)
+                    break
+
+        if gross_eur is None:
+            # Fallback: use local amount as EUR (best effort)
+            gross_eur = local_amount
+
+        # Find withholding tax row
+        tax_rows_for = tax_by_isin_date.get((isin, date_str), [])
+        tax_local = None
+        tax_eur = None
+        if tax_rows_for:
+            tax_row = tax_rows_for[0]
+            raw_tax = parse_dutch_number(tax_row[COL_MUTATIE_AMT])
+            if raw_tax is not None:
+                tax_local = abs(raw_tax)
+
+            # Find matching EUR debit row
+            if tax_row[COL_MUTATIE_CUR].strip() == "EUR":
+                tax_eur = tax_local
+            else:
+                debit_candidates = eur_debits_by_date.get(date_str, [])
+                for cand in debit_candidates:
+                    if id(cand) not in used_debits:
+                        raw_debit = parse_dutch_number(cand[COL_MUTATIE_AMT])
+                        if raw_debit is not None:
+                            tax_eur = abs(raw_debit)
+                        used_debits.add(id(cand))
+                        break
+                if tax_eur is None and tax_local is not None:
+                    tax_eur = tax_local  # fallback
+
+        amount_eur = gross_eur - (tax_eur or 0)
+
+        try:
+            dividend_date = parse_date(date_str, div_row[COL_TIJD].strip()).date()
+        except Exception:
+            continue
+
+        results.append({
+            "isin": isin,
+            "product_name": product_name,
+            "dividend_date": dividend_date,
+            "local_currency": local_currency,
+            "local_amount": local_amount,
+            "gross_amount_eur": gross_eur,
+            "withholding_tax_eur": tax_eur,
+            "amount_eur": amount_eur,
+        })
+
+    return results
+
+
+def import_degiro_dividends(db, parsed_rows: list[dict]) -> tuple[int, int, list]:
+    from app.models.dividend import Dividend
+
+    imported = 0
+    skipped = 0
+    dividends = []
+
+    if not parsed_rows:
+        return imported, skipped, dividends
+
+    existing_keys: set[tuple] = set()
+    isins = [r["isin"] for r in parsed_rows]
+    dates = [r["dividend_date"] for r in parsed_rows]
+    existing = db.query(Dividend.isin, Dividend.dividend_date).filter(
+        Dividend.isin.in_(isins),
+        Dividend.dividend_date.in_(dates),
+    ).all()
+    existing_keys = {(row[0], row[1]) for row in existing}
+
+    seen: set[tuple] = set()
+    for row in parsed_rows:
+        key = (row["isin"], row["dividend_date"])
+        if key in existing_keys or key in seen:
+            skipped += 1
+            continue
+        seen.add(key)
+        div = Dividend(**row)
+        db.add(div)
+        dividends.append(div)
+        imported += 1
+
+    db.commit()
+    for div in dividends:
+        db.refresh(div)
+
+    return imported, skipped, dividends
+
+
 def import_degiro_transactions(db, parsed_rows: list[dict]) -> tuple[int, int, list]:
     from app.models.transaction import Transaction
 
