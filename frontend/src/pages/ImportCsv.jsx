@@ -35,20 +35,54 @@ const BROKERS = [
       'Download the XML file',
     ],
   },
+  {
+    id: 'trading212',
+    label: 'Trading 212',
+    accept: '.csv',
+    previewUrl: '/api/import/trading212/preview',
+    confirmUrl: '/api/import/trading212/confirm',
+    fileType: 'CSV',
+    color: '#1db954',
+    steps: [
+      'Open the Trading 212 app or web platform',
+      'Go to History',
+      'Click Export → All time',
+      'Download the CSV file',
+    ],
+  },
 ];
 
+const BROKER_DOMAINS = {
+  degiro: 'degiro.nl',
+  mexem: 'mexem.com',
+  trading212: 'trading212.com',
+};
+
 function BrokerIcon({ broker, size = 40 }) {
+  const domain = BROKER_DOMAINS[broker.id];
+  if (domain) {
+    return (
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+        width={size}
+        height={size}
+        alt={broker.label}
+        style={{ borderRadius: 8, objectFit: 'contain' }}
+      />
+    );
+  }
+  // Fallback for brokers without a known domain
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="40" height="40" rx="8" fill={broker.color} fillOpacity="0.15" />
       <text
         x="50%"
-        y="50%"
+        y="52%"
         dominantBaseline="central"
         textAnchor="middle"
         fill={broker.color}
         fontSize="16"
-        fontWeight="600"
+        fontWeight="700"
         fontFamily="system-ui, -apple-system, sans-serif"
       >
         {broker.label[0]}

@@ -16,6 +16,12 @@ from app.services.importer.degiro import (
     parse_dividends_csv,
 )
 from app.services.importer.mexem import parse_mexem_cash_balance, parse_mexem_xml
+from app.services.importer.trading212 import (
+    import_trading212_dividends,
+    import_trading212_transactions,
+    parse_trading212_csv,
+    parse_trading212_dividends,
+)
 from app.services.prices.yfinance_fetcher import fetch_prices_for_isins
 
 logger = logging.getLogger(__name__)
@@ -147,3 +153,58 @@ async def import_mexem_confirm(
 
     transactions = [TransactionOut.model_validate(txn) for txn in db_transactions]
     return ImportConfirmResponse(imported=imported, skipped=skipped, transactions=transactions)
+
+
+@router.post("/import/trading212/preview", response_model=ImportPreviewResponse)
+async def import_trading212_preview(file: UploadFile):
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files are accepted")
+
+    content = await file.read()
+    try:
+        parsed = parse_trading212_csv(content)
+        parsed_dividends = parse_trading212_dividends(content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {e}") from e
+
+    transactions = [TransactionOut(**row) for row in parsed]
+    dividends = [DividendOut(**row) for row in parsed_dividends]
+    return ImportPreviewResponse(
+        count=len(transactions),
+        transactions=transactions,
+        dividend_count=len(dividends),
+        dividends=dividends,
+    )
+
+
+@router.post("/import/trading212/confirm", response_model=ImportConfirmResponse)
+async def import_trading212_confirm(
+    file: UploadFile,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files are accepted")
+
+    content = await file.read()
+    try:
+        parsed = parse_trading212_csv(content)
+        parsed_dividends = parse_trading212_dividends(content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {e}") from e
+
+    imported, skipped, db_transactions = import_trading212_transactions(db, parsed)
+    divs_imported, divs_skipped, _ = import_trading212_dividends(db, parsed_dividends)
+
+    isins = list({row["isin"] for row in parsed})
+    if isins:
+        background_tasks.add_task(fetch_prices_for_isins, db, isins)
+
+    transactions = [TransactionOut.model_validate(txn) for txn in db_transactions]
+    return ImportConfirmResponse(
+        imported=imported,
+        skipped=skipped,
+        transactions=transactions,
+        dividends_imported=divs_imported,
+        dividends_skipped=divs_skipped,
+    )
