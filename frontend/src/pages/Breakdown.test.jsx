@@ -17,9 +17,15 @@ const MOCK_BREAKDOWN = {
   ],
 };
 
+const EMPTY_GOALS = { sector: [], region: [], asset_type: [] };
+
 vi.mock('../api/client', () => ({
   default: {
-    get: () => Promise.resolve({ data: MOCK_BREAKDOWN }),
+    get: (url) => {
+      if (url.includes('goals')) return Promise.resolve({ data: EMPTY_GOALS });
+      return Promise.resolve({ data: MOCK_BREAKDOWN });
+    },
+    put: () => Promise.resolve({ data: [] }),
   },
 }));
 
@@ -58,6 +64,16 @@ describe('Breakdown', () => {
     expect(await screen.findByText('Sector Allocation')).toBeInTheDocument();
     expect(screen.getByText('Region Allocation')).toBeInTheDocument();
     expect(screen.getByText('Asset Type')).toBeInTheDocument();
+  });
+
+  it('renders tab buttons', async () => {
+    render(
+      <MemoryRouter>
+        <Breakdown />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Allocation')).toBeInTheDocument();
+    expect(screen.getByText('Goals')).toBeInTheDocument();
   });
 
   it('renders breakdown table data', async () => {
