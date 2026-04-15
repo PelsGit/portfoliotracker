@@ -35,6 +35,21 @@ const BROKERS = [
       'Download the XML file',
     ],
   },
+  {
+    id: 'trading212',
+    label: 'Trading 212',
+    accept: '.csv',
+    previewUrl: '/api/import/trading212/preview',
+    confirmUrl: '/api/import/trading212/confirm',
+    fileType: 'CSV',
+    color: '#1db954',
+    steps: [
+      'Open the Trading 212 app or web platform',
+      'Go to History',
+      'Click Export → All time',
+      'Download the CSV file',
+    ],
+  },
 ];
 
 function BrokerIcon({ broker, size = 40 }) {
