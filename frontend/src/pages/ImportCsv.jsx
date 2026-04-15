@@ -53,17 +53,69 @@ const BROKERS = [
 ];
 
 function BrokerIcon({ broker, size = 40 }) {
+  const s = size;
+
+  if (broker.id === 'degiro') {
+    // DEGIRO: solid green square, white hollow-D lettermark
+    return (
+      <svg width={s} height={s} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="40" height="40" rx="8" fill="#00b057" />
+        {/* Outer D shape */}
+        <path
+          d="M11 9 L11 31 L21 31 C30 31 30 9 21 9 Z"
+          fill="white"
+        />
+        {/* Inner cutout to make hollow D */}
+        <path
+          d="M15 13 L20 13 C25.5 13 25.5 27 20 27 L15 27 Z"
+          fill="#00b057"
+        />
+      </svg>
+    );
+  }
+
+  if (broker.id === 'mexem') {
+    // MEXEM: solid blue square, white angular M mark
+    return (
+      <svg width={s} height={s} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="40" height="40" rx="8" fill="#4f8ef7" />
+        <polyline
+          points="8,30 8,10 20,24 32,10 32,30"
+          stroke="white"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </svg>
+    );
+  }
+
+  if (broker.id === 'trading212') {
+    // Trading 212: solid green square, white ascending bar chart
+    return (
+      <svg width={s} height={s} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="40" height="40" rx="8" fill="#1db954" />
+        {/* Three ascending bars */}
+        <rect x="8"  y="26" width="6" height="6"  rx="1" fill="white" />
+        <rect x="17" y="19" width="6" height="13" rx="1" fill="white" />
+        <rect x="26" y="12" width="6" height="20" rx="1" fill="white" />
+      </svg>
+    );
+  }
+
+  // Fallback for any future broker
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width={s} height={s} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="40" height="40" rx="8" fill={broker.color} fillOpacity="0.15" />
       <text
         x="50%"
-        y="50%"
+        y="52%"
         dominantBaseline="central"
         textAnchor="middle"
         fill={broker.color}
         fontSize="16"
-        fontWeight="600"
+        fontWeight="700"
         fontFamily="system-ui, -apple-system, sans-serif"
       >
         {broker.label[0]}
