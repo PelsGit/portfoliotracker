@@ -24,7 +24,7 @@ const PALETTE = [
   '#94a3b8', '#e879f9',
 ];
 
-function CompanyIcon({ logoUrl, name, color, size }) {
+function CompanyIcon({ logoUrl, color, size }) {
   if (logoUrl) {
     return (
       <img
