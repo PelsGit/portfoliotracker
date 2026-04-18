@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import SessionLocal
 from app.routers import health, import_csv, portfolio, prices
+from app.routers import settings as settings_router
 from app.services.earnings import fetch_earnings_dates
 from app.services.price_refresh import scheduled_refresh
 from app.services.prices.yfinance_fetcher import fetch_benchmark_prices
@@ -84,3 +85,4 @@ app.include_router(health.router)
 app.include_router(import_csv.router, prefix="/api")
 app.include_router(portfolio.router, prefix="/api")
 app.include_router(prices.router, prefix="/api")
+app.include_router(settings_router.router, prefix="/api")

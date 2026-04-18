@@ -96,7 +96,7 @@ def _logo_from_website(website: str | None) -> str | None:
 
 
 def _upsert_security_info(db: Session, isin: str, ticker) -> None:
-    """Extract sector/country/asset_type from yfinance ticker.info and upsert."""
+    """Extract sector/country/asset_type/market_cap from yfinance ticker.info and upsert."""
     try:
         info = ticker.info
         sector = info.get("sector")
@@ -104,6 +104,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
         country = info.get("country")
         quote_type = info.get("quoteType")
         logo_url = info.get("logo_url") or _logo_from_website(info.get("website"))
+        market_cap = info.get("marketCap")
 
         asset_type_map = {"EQUITY": "Stock", "ETF": "ETF", "MUTUALFUND": "Fund"}
         asset_type = asset_type_map.get(quote_type, quote_type)
@@ -114,6 +115,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
             industry=industry,
             country=country,
             asset_type=asset_type,
+            market_cap=market_cap,
             logo_url=logo_url,
             fetched_at=datetime.now(timezone.utc),
         )
@@ -124,6 +126,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
                 "industry": industry,
                 "country": country,
                 "asset_type": asset_type,
+                "market_cap": market_cap,
                 "logo_url": logo_url,
                 "fetched_at": datetime.now(timezone.utc),
             },

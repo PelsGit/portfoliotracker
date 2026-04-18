@@ -21,6 +21,7 @@ class Transaction(Base):
     costs: Mapped[float | None] = mapped_column(Numeric(10, 2))
     total: Mapped[float | None] = mapped_column(Numeric(14, 2))
     order_id: Mapped[str | None] = mapped_column(String(50))
+    broker: Mapped[str | None] = mapped_column(String(50))
     created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (Index("ix_transactions_isin", "isin"),)

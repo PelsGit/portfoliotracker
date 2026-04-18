@@ -146,6 +146,7 @@ def parse_mexem_xml(file_content: bytes | str) -> list[dict]:
                 "isin": isin,
                 "product_name": trade.get("description", "").strip() or None,
                 "exchange": trade.get("exchange", "").strip() or None,
+                "broker": "MEXEM",
                 "local_currency": local_currency,
                 "date": dt,
                 "quantity": quantity,
