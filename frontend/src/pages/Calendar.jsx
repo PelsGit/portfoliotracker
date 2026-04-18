@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api/client';
 
 function getDaysInMonth(year, month) {
@@ -17,11 +17,13 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-// Stable colour per ISIN
+// No semantic colors (#34d399 = --positive, #f87171 = --negative excluded)
 const PALETTE = [
-  '#6c8cff', '#4ade80', '#fb923c', '#c084fc', '#38bdf8',
-  '#f472b6', '#facc15', '#34d399', '#f87171', '#a78bfa',
+  '#6c8cff', '#fb923c', '#c084fc', '#38bdf8',
+  '#f472b6', '#facc15', '#a78bfa', '#2dd4bf',
+  '#94a3b8', '#e879f9',
 ];
+
 function isinColor(isin, colorMap) {
   if (!colorMap[isin]) {
     const idx = Object.keys(colorMap).length % PALETTE.length;
@@ -31,12 +33,17 @@ function isinColor(isin, colorMap) {
 }
 
 export default function Calendar() {
-  const today = new Date();
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const today = new Date(todayStr);
+
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [earnings, setEarnings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const colorMap = {};
+
+  // Stable color assignments across renders (useRef survives StrictMode double-invoke)
+  const colorMapRef = useRef({});
+  const colorMap = colorMapRef.current;
 
   useEffect(() => {
     api
@@ -46,16 +53,32 @@ export default function Calendar() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Group earnings by date string "YYYY-MM-DD"
-  const byDate = {};
-  for (const e of earnings) {
-    byDate[e.earnings_date] = byDate[e.earnings_date] || [];
-    byDate[e.earnings_date].push(e);
-  }
+  const byDate = useMemo(() => {
+    const map = {};
+    for (const e of earnings) {
+      map[e.earnings_date] = map[e.earnings_date] || [];
+      map[e.earnings_date].push(e);
+    }
+    return map;
+  }, [earnings]);
+
+  const upcoming = useMemo(
+    () =>
+      earnings
+        .filter((e) => e.earnings_date >= todayStr)
+        .sort((a, b) => a.earnings_date.localeCompare(b.earnings_date))
+        .slice(0, 20),
+    [earnings, todayStr]
+  );
+
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const monthEvents = useMemo(
+    () => earnings.filter((e) => e.earnings_date.startsWith(monthPrefix)),
+    [earnings, monthPrefix]
+  );
 
   const daysInMonth = getDaysInMonth(year, month);
   const firstDow = getFirstDayOfWeek(year, month);
-  const todayStr = today.toISOString().slice(0, 10);
 
   const prevMonth = () => {
     if (month === 0) { setYear(y => y - 1); setMonth(11); }
@@ -66,41 +89,47 @@ export default function Calendar() {
     else setMonth(m => m + 1);
   };
 
-  // Upcoming earnings list (next 90 days)
-  const upcoming = earnings
-    .filter((e) => e.earnings_date >= todayStr)
-    .sort((a, b) => a.earnings_date.localeCompare(b.earnings_date))
-    .slice(0, 20);
-
-  // Count unique companies in selected month
-  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
-  const monthEvents = earnings.filter((e) => e.earnings_date.startsWith(monthPrefix));
-
   return (
     <div>
       <h1 className="page-title">Earnings Calendar</h1>
 
       <div className="cal-layout">
         <div className="cal-main">
-          {/* Month navigation */}
           <div className="cal-header">
-            <button className="cal-nav-btn" onClick={prevMonth}>‹</button>
-            <span className="cal-month-label">{MONTH_NAMES[month]} {year}</span>
-            <button className="cal-nav-btn" onClick={nextMonth}>›</button>
+            <button
+              className="cal-nav-btn"
+              onClick={prevMonth}
+              aria-label="Previous month"
+            >
+              ‹
+            </button>
+            <span className="cal-month-label" aria-live="polite" aria-atomic="true">
+              {MONTH_NAMES[month]} {year}
+            </span>
+            <button
+              className="cal-nav-btn"
+              onClick={nextMonth}
+              aria-label="Next month"
+            >
+              ›
+            </button>
           </div>
 
-          {/* Weekday headers */}
-          <div className="cal-grid">
+          <div
+            className="cal-grid"
+            role="grid"
+            aria-label={`${MONTH_NAMES[month]} ${year}`}
+          >
             {WEEKDAYS.map((d) => (
-              <div key={d} className="cal-weekday">{d}</div>
+              <div key={d} className="cal-weekday" role="columnheader" aria-label={d}>
+                {d}
+              </div>
             ))}
 
-            {/* Leading empty cells */}
             {Array.from({ length: firstDow }).map((_, i) => (
-              <div key={`empty-${i}`} className="cal-cell cal-cell--empty" />
+              <div key={`empty-${i}`} className="cal-cell cal-cell--empty" role="gridcell" />
             ))}
 
-            {/* Day cells */}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -110,30 +139,38 @@ export default function Calendar() {
               return (
                 <div
                   key={day}
+                  role="gridcell"
+                  aria-current={isToday ? 'date' : undefined}
                   className={`cal-cell${isToday ? ' cal-cell--today' : ''}${events.length ? ' cal-cell--has-event' : ''}`}
                 >
-                  <span className={`cal-day-num${isToday ? ' cal-day-num--today' : ''}`}>{day}</span>
-                  {events.map((e) => (
-                    <span
-                      key={e.isin}
-                      className="cal-event"
-                      style={{ background: isinColor(e.isin, colorMap) + '22', borderLeft: `3px solid ${isinColor(e.isin, colorMap)}` }}
-                      title={e.product_name}
-                    >
-                      {e.product_name}
-                    </span>
-                  ))}
+                  <span className={`cal-day-num${isToday ? ' cal-day-num--today' : ''}`}>
+                    {day}
+                  </span>
+                  {events.map((e) => {
+                    const color = isinColor(e.isin, colorMap);
+                    return (
+                      <span
+                        key={e.isin}
+                        className="cal-event"
+                        style={{ '--event-color': color }}
+                        title={e.product_name}
+                        aria-label={e.product_name}
+                      >
+                        <span className="cal-event-dot" aria-hidden="true" />
+                        <span className="cal-event-name">{e.product_name}</span>
+                      </span>
+                    );
+                  })}
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Sidebar: upcoming */}
         <div className="cal-sidebar">
-          <div className="cal-sidebar-title">Upcoming earnings</div>
+          <h2 className="cal-sidebar-title">Upcoming earnings</h2>
           {loading ? (
-            <p className="cal-empty">Loading…</p>
+            <p role="status" aria-live="polite" className="cal-empty">Loading…</p>
           ) : upcoming.length === 0 ? (
             <p className="cal-empty">No upcoming earnings found.</p>
           ) : (
@@ -141,9 +178,13 @@ export default function Calendar() {
               const d = new Date(e.earnings_date + 'T00:00:00');
               const label = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
               const isPast = e.earnings_date < todayStr;
+              const color = isinColor(e.isin, colorMap);
               return (
-                <div key={`${e.isin}-${e.earnings_date}`} className={`cal-upcoming-row${isPast ? ' cal-upcoming-row--past' : ''}`}>
-                  <span className="cal-upcoming-dot" style={{ background: isinColor(e.isin, colorMap) }} />
+                <div
+                  key={`${e.isin}-${e.earnings_date}`}
+                  className={`cal-upcoming-row${isPast ? ' cal-upcoming-row--past' : ''}`}
+                >
+                  <span className="cal-upcoming-dot" style={{ background: color }} aria-hidden="true" />
                   <span className="cal-upcoming-name">{e.product_name}</span>
                   <span className="cal-upcoming-date">{label}</span>
                 </div>
@@ -161,8 +202,9 @@ export default function Calendar() {
 
       <style>{`
         .page-title {
-          font-size: 17px;
-          font-weight: 500;
+          font-size: var(--text-lg);
+          font-weight: 600;
+          letter-spacing: -0.2px;
           color: var(--text-primary);
           margin-bottom: calc(var(--spacing) * 2);
         }
@@ -201,13 +243,14 @@ export default function Calendar() {
           align-items: center;
           justify-content: center;
           line-height: 1;
+          transition: color 0.15s;
         }
 
         .cal-nav-btn:hover { color: var(--text-primary); }
 
         .cal-month-label {
-          font-size: 15px;
-          font-weight: 500;
+          font-size: var(--text-lg);
+          font-weight: 600;
           color: var(--text-primary);
         }
 
@@ -219,10 +262,12 @@ export default function Calendar() {
 
         .cal-weekday {
           text-align: center;
-          font-size: 11px;
+          font-size: var(--text-xs);
           color: var(--text-muted);
           padding: 4px 0 8px;
           font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
         }
 
         .cal-cell {
@@ -232,21 +277,22 @@ export default function Calendar() {
           display: flex;
           flex-direction: column;
           gap: 2px;
-          background: rgba(255,255,255,0.02);
+          background: rgba(255, 255, 255, 0.02);
         }
 
         .cal-cell--empty { background: transparent; }
 
         .cal-cell--today {
-          background: rgba(108, 140, 255, 0.06);
-          outline: 1px solid rgba(108, 140, 255, 0.3);
+          background: color-mix(in srgb, var(--accent-blue) 6%, transparent);
+          outline: 1px solid color-mix(in srgb, var(--accent-blue) 30%, transparent);
         }
 
         .cal-day-num {
-          font-size: 12px;
+          font-size: var(--text-sm);
           color: var(--text-muted);
           margin-bottom: 2px;
           align-self: flex-end;
+          font-variant-numeric: tabular-nums;
         }
 
         .cal-day-num--today {
@@ -255,14 +301,30 @@ export default function Calendar() {
         }
 
         .cal-event {
-          font-size: 10px;
-          color: var(--text-primary);
-          padding: 2px 4px;
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          font-size: var(--text-xs);
+          padding: 2px 5px;
           border-radius: 3px;
+          background: color-mix(in srgb, var(--event-color, var(--accent-blue)) 12%, transparent);
+          overflow: hidden;
+          cursor: default;
+        }
+
+        .cal-event-dot {
+          width: 5px;
+          height: 5px;
+          border-radius: 50%;
+          background: var(--event-color, var(--accent-blue));
+          flex-shrink: 0;
+        }
+
+        .cal-event-name {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          cursor: default;
+          color: var(--text-primary);
         }
 
         .cal-sidebar {
@@ -276,16 +338,16 @@ export default function Calendar() {
         }
 
         .cal-sidebar-title {
-          font-size: 12px;
+          font-size: var(--text-xs);
           font-weight: 500;
           color: var(--text-secondary);
           margin-bottom: calc(var(--spacing) * 0.5);
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.6px;
         }
 
         .cal-empty {
-          font-size: 12px;
+          font-size: var(--text-sm);
           color: var(--text-muted);
         }
 
@@ -294,10 +356,10 @@ export default function Calendar() {
           align-items: center;
           gap: 6px;
           padding: 5px 0;
-          border-bottom: 1px solid rgba(255,255,255,0.04);
+          border-bottom: 1px solid var(--border-row);
         }
 
-        .cal-upcoming-row--past { opacity: 0.45; }
+        .cal-upcoming-row--past { opacity: 0.55; }
 
         .cal-upcoming-dot {
           width: 7px;
@@ -307,7 +369,7 @@ export default function Calendar() {
         }
 
         .cal-upcoming-name {
-          font-size: 12px;
+          font-size: var(--text-sm);
           color: var(--text-primary);
           flex: 1;
           overflow: hidden;
@@ -316,16 +378,38 @@ export default function Calendar() {
         }
 
         .cal-upcoming-date {
-          font-size: 11px;
+          font-size: var(--text-xs);
           color: var(--text-muted);
           flex-shrink: 0;
+          font-variant-numeric: tabular-nums;
         }
 
         .cal-month-summary {
           margin-top: calc(var(--spacing) * 1.5);
-          font-size: 11px;
+          font-size: var(--text-xs);
           color: var(--text-muted);
           text-align: center;
+        }
+
+        @media (max-width: 640px) {
+          .cal-layout {
+            grid-template-columns: 1fr;
+          }
+
+          .cal-nav-btn {
+            width: 44px;
+            height: 44px;
+            font-size: 22px;
+          }
+
+          .cal-cell {
+            min-height: 56px;
+            padding: 3px 3px;
+          }
+
+          .cal-main {
+            padding: calc(var(--spacing) * 2);
+          }
         }
       `}</style>
     </div>
