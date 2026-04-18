@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Area,
-  AreaChart,
   CartesianGrid,
+  ComposedChart,
   Line,
   ReferenceLine,
   ResponsiveContainer,
@@ -66,7 +66,9 @@ export default function Performance() {
   const [period, setPeriod] = useState('1Y');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeBenchmarks, setActiveBenchmarks] = useState(['FTSE All-World']);
+  const [activeBenchmarks, setActiveBenchmarks] = useState(
+    BENCHMARKS_META.map((b) => b.name)
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -193,7 +195,7 @@ export default function Performance() {
         {!loading && twrSeries.length > 0 && (
           <figure aria-label={`Portfolio performance — ${period}`} style={{ margin: 0 }}>
             <ResponsiveContainer width="100%" height={360}>
-              <AreaChart data={chartData}>
+              <ComposedChart data={chartData}>
                 <defs>
                   <linearGradient id="portfolioFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={PORTFOLIO_COLOR} stopOpacity={0.15} />
@@ -244,7 +246,7 @@ export default function Performance() {
                     />
                   );
                 })}
-              </AreaChart>
+              </ComposedChart>
             </ResponsiveContainer>
           </figure>
         )}
