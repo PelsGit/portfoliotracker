@@ -66,7 +66,7 @@ export default function Overview() {
     return (
       <div>
         <h1 className="page-title">Portfolio Overview</h1>
-        <p className="loading-text">Loading...</p>
+        <p className="loading-text" role="status" aria-live="polite">Loading...</p>
       </div>
     );
   }
@@ -192,9 +192,10 @@ export default function Overview() {
         }
 
         .page-title {
-          font-size: 17px;
-          font-weight: 500;
+          font-size: var(--text-lg);
+          font-weight: 600;
           color: var(--text-primary);
+          letter-spacing: -0.2px;
         }
 
         .header-actions {
@@ -213,10 +214,11 @@ export default function Overview() {
           color: var(--accent-blue);
           border: 1px solid var(--accent-blue);
           border-radius: var(--radius);
-          padding: calc(var(--spacing) * 0.75) calc(var(--spacing) * 2);
+          padding: calc(var(--spacing) * 1) calc(var(--spacing) * 2);
           font-size: 12px;
           cursor: pointer;
           white-space: nowrap;
+          min-height: 32px;
         }
 
         .btn-refresh:hover:not(:disabled) {
@@ -241,21 +243,21 @@ export default function Overview() {
         }
 
         .metrics-grid--4 {
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
         }
 
         .section-title {
-          font-size: 11px;
+          font-size: var(--text-xs);
+          font-weight: 500;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.6px;
           color: var(--text-muted);
-          font-weight: 400;
           margin-bottom: calc(var(--spacing) * 1.5);
         }
 
         .charts-row {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
           gap: calc(var(--spacing) * 2);
           margin-bottom: calc(var(--spacing) * 3);
         }
@@ -269,6 +271,22 @@ export default function Overview() {
 
         .holdings-section {
           margin-bottom: calc(var(--spacing) * 3);
+        }
+
+        @media (max-width: 600px) {
+          .overview-header {
+            flex-wrap: wrap;
+            gap: calc(var(--spacing) * 1.5);
+          }
+
+          .last-import {
+            display: none;
+          }
+
+          .btn-refresh {
+            min-height: 44px;
+            padding: 0 calc(var(--spacing) * 2);
+          }
         }
       `}</style>
     </div>

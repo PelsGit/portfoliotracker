@@ -1,14 +1,18 @@
+import { useMemo } from 'react';
 import { formatPercent } from '../utils/format';
 
 export default function TopHoldingsList({ holdings }) {
-  if (!holdings?.length) {
+  const sorted = useMemo(() =>
+    (holdings ?? [])
+      .filter((h) => h.weight != null)
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, 5),
+    [holdings]
+  );
+
+  if (!sorted.length) {
     return <p className="top-empty">No holdings</p>;
   }
-
-  const sorted = [...holdings]
-    .filter((h) => h.weight != null)
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, 5);
 
   return (
     <div className="top-holdings">
