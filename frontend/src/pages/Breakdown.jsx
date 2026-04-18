@@ -22,7 +22,10 @@ function GapBar({ actual, target }) {
       <div className="gap-bars">
         <div className="gap-bar-pair">
           <div className="gap-bar-track">
-            <div className="gap-bar gap-bar--actual" style={{ width: `${Math.min(actual, 100)}%` }} />
+            <div
+              className="gap-bar gap-bar--actual"
+              style={{ transform: `scaleX(${Math.min(actual, 100) / 100})` }}
+            />
           </div>
           <span className="gap-pct">{actual.toFixed(1)}%</span>
         </div>
@@ -30,11 +33,19 @@ function GapBar({ actual, target }) {
           {target != null ? (
             <>
               <div className="gap-bar-track">
-                <div className="gap-bar gap-bar--target" style={{ width: `${Math.min(target, 100)}%` }} />
+                <div
+                  className="gap-bar gap-bar--target"
+                  style={{ transform: `scaleX(${Math.min(target, 100) / 100})` }}
+                />
               </div>
               <span className="gap-pct gap-pct--muted">{target.toFixed(1)}%</span>
               <span className={`gap-delta ${onTarget ? 'gap-delta--ok' : over ? 'gap-delta--over' : 'gap-delta--under'}`}>
-                {onTarget ? '✓' : over ? `▲ +${delta.toFixed(1)}%` : `▼ ${delta.toFixed(1)}%`}
+                {onTarget
+                  ? <><span aria-hidden="true">✓</span><span className="sr-only"> on target</span></>
+                  : over
+                  ? <><span aria-hidden="true">▲</span>{` +${delta.toFixed(1)}%`}</>
+                  : <><span aria-hidden="true">▼</span>{` ${delta.toFixed(1)}%`}</>
+                }
               </span>
             </>
           ) : (
@@ -106,7 +117,6 @@ function GoalsSection({ dimKey, label, breakdown, goals, onSave }) {
         )}
       </div>
 
-      {/* Column headers */}
       <div className="gap-table">
         <div className="gap-header">
           <span className="gap-name" />
@@ -123,7 +133,10 @@ function GoalsSection({ dimKey, label, breakdown, goals, onSave }) {
               <div className="gap-bars">
                 <div className="gap-bar-pair">
                   <div className="gap-bar-track">
-                    <div className="gap-bar gap-bar--actual" style={{ width: `${Math.min(cat.weight, 100)}%` }} />
+                    <div
+                      className="gap-bar gap-bar--actual"
+                      style={{ transform: `scaleX(${Math.min(cat.weight, 100) / 100})` }}
+                    />
                   </div>
                   <span className="gap-pct">{cat.weight.toFixed(1)}%</span>
                 </div>
@@ -135,6 +148,7 @@ function GoalsSection({ dimKey, label, breakdown, goals, onSave }) {
                     step="0.5"
                     className="target-input"
                     placeholder="0"
+                    aria-label={`Target weight for ${cat.name}`}
                     value={draft[cat.name] ?? ''}
                     onChange={(e) => setDraft((d) => ({ ...d, [cat.name]: e.target.value }))}
                   />
@@ -181,7 +195,9 @@ function GoalsTab({ breakdown }) {
     setGoals((prev) => ({ ...prev, [dimension]: res.data }));
   }
 
-  if (loading) return <p className="loading-text">Loading goals…</p>;
+  if (loading) {
+    return <p className="loading-text" role="status" aria-live="polite">Loading goals…</p>;
+  }
 
   return (
     <div className="goals-tab">
@@ -218,7 +234,7 @@ export default function Breakdown() {
     return (
       <div>
         <h1 className="page-title">Breakdown</h1>
-        <p className="loading-text">Loading...</p>
+        <p className="loading-text" role="status" aria-live="polite">Loading...</p>
       </div>
     );
   }
@@ -229,14 +245,22 @@ export default function Breakdown() {
     <div>
       <h1 className="page-title">Breakdown</h1>
 
-      <div className="tab-bar">
+      <div className="tab-bar" role="tablist" aria-label="Breakdown views">
         <button
+          role="tab"
+          id="tab-allocation"
+          aria-selected={activeTab === 'allocation'}
+          aria-controls="panel-allocation"
           className={`tab-btn${activeTab === 'allocation' ? ' tab-btn--active' : ''}`}
           onClick={() => setActiveTab('allocation')}
         >
           Allocation
         </button>
         <button
+          role="tab"
+          id="tab-goals"
+          aria-selected={activeTab === 'goals'}
+          aria-controls="panel-goals"
           className={`tab-btn${activeTab === 'goals' ? ' tab-btn--active' : ''}`}
           onClick={() => setActiveTab('goals')}
         >
@@ -245,7 +269,7 @@ export default function Breakdown() {
       </div>
 
       {activeTab === 'allocation' && (
-        <>
+        <div role="tabpanel" id="panel-allocation" aria-labelledby="tab-allocation">
           {isEmpty ? (
             <p className="loading-text">No breakdown data available. Import transactions first.</p>
           ) : (
@@ -287,12 +311,28 @@ export default function Breakdown() {
               </section>
             </>
           )}
-        </>
+        </div>
       )}
 
-      {activeTab === 'goals' && <GoalsTab breakdown={data} />}
+      {activeTab === 'goals' && (
+        <div role="tabpanel" id="panel-goals" aria-labelledby="tab-goals">
+          <GoalsTab breakdown={data} />
+        </div>
+      )}
 
       <style>{`
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+
         .tab-bar {
           display: flex;
           gap: 2px;
@@ -302,19 +342,22 @@ export default function Breakdown() {
         .tab-btn {
           background: none;
           border: none;
-          padding: 4px 0;
+          border-bottom: 2px solid transparent;
+          padding: 8px 0;
+          min-height: 44px;
           margin-right: calc(var(--spacing) * 2);
-          font-size: 17px;
+          font-size: var(--text-lg);
           font-weight: 500;
+          font-family: var(--font-family);
           color: var(--text-muted);
           cursor: pointer;
-          border-bottom: 2px solid transparent;
           line-height: 1.4;
+          transition: color 0.15s;
         }
 
         .tab-btn--active {
           color: var(--text-primary);
-          border-bottom-color: var(--accent-blue, #6c8cff);
+          border-bottom-color: var(--accent-blue);
         }
 
         .tab-btn:hover:not(.tab-btn--active) {
@@ -322,23 +365,24 @@ export default function Breakdown() {
         }
 
         .page-title {
-          font-size: 17px;
-          font-weight: 500;
+          font-size: var(--text-lg);
+          font-weight: 600;
+          letter-spacing: -0.2px;
           color: var(--text-primary);
           margin-bottom: calc(var(--spacing) * 3);
         }
 
         .loading-text {
           color: var(--text-muted);
-          font-size: 13px;
+          font-size: var(--text-base);
         }
 
         .section-title {
-          font-size: 11px;
+          font-size: var(--text-xs);
+          font-weight: 500;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.6px;
           color: var(--text-muted);
-          font-weight: 400;
           margin-bottom: calc(var(--spacing) * 1.5);
         }
 
@@ -348,7 +392,7 @@ export default function Breakdown() {
 
         .breakdown-row {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
           gap: calc(var(--spacing) * 2);
         }
 
@@ -384,7 +428,6 @@ export default function Breakdown() {
           margin-bottom: 0;
         }
 
-        /* Gap table */
         .gap-table {
           display: flex;
           flex-direction: column;
@@ -393,7 +436,7 @@ export default function Breakdown() {
 
         .gap-header, .gap-table-row {
           display: grid;
-          grid-template-columns: 160px 1fr;
+          grid-template-columns: minmax(100px, 160px) 1fr;
           align-items: center;
           gap: calc(var(--spacing) * 2);
         }
@@ -403,7 +446,7 @@ export default function Breakdown() {
         }
 
         .gap-col-label {
-          font-size: 10px;
+          font-size: var(--text-xs);
           text-transform: uppercase;
           letter-spacing: 0.4px;
           color: var(--text-muted);
@@ -411,7 +454,7 @@ export default function Breakdown() {
         }
 
         .gap-name {
-          font-size: 13px;
+          font-size: var(--text-base);
           color: var(--text-primary);
           white-space: nowrap;
           overflow: hidden;
@@ -437,19 +480,24 @@ export default function Breakdown() {
         .gap-bar-track {
           flex: 1;
           height: 8px;
-          background: var(--bg-hover, rgba(255,255,255,0.05));
+          background: var(--bg-hover);
           border-radius: 4px;
           overflow: hidden;
         }
 
         .gap-bar {
           height: 100%;
-          border-radius: 4px;
-          transition: width 0.3s ease;
+          width: 100%;
+          transform-origin: left center;
+          transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .gap-bar { transition: none; }
         }
 
         .gap-bar--actual {
-          background: var(--color-accent, #4f8ef7);
+          background: var(--accent-blue);
         }
 
         .gap-bar--target {
@@ -459,10 +507,11 @@ export default function Breakdown() {
         }
 
         .gap-pct {
-          font-size: 12px;
+          font-size: var(--text-sm);
           color: var(--text-primary);
           white-space: nowrap;
           min-width: 38px;
+          font-variant-numeric: tabular-nums;
         }
 
         .gap-pct--muted {
@@ -470,41 +519,44 @@ export default function Breakdown() {
         }
 
         .gap-delta {
-          font-size: 11px;
+          font-size: var(--text-xs);
           font-weight: 500;
           white-space: nowrap;
           padding: 1px 5px;
           border-radius: 4px;
+          font-variant-numeric: tabular-nums;
         }
 
-        .gap-delta--ok    { color: #4ade80; background: rgba(74,222,128,0.1); }
-        .gap-delta--over  { color: #f87171; background: rgba(248,113,113,0.1); }
-        .gap-delta--under { color: #60a5fa; background: rgba(96,165,250,0.1); }
+        .gap-delta--ok    { color: var(--positive); background: rgba(52, 211, 153, 0.1); }
+        .gap-delta--over  { color: var(--negative); background: rgba(248, 113, 113, 0.1); }
+        .gap-delta--under { color: var(--accent-blue); background: rgba(108, 140, 255, 0.1); }
 
         .gap-no-target {
-          font-size: 12px;
+          font-size: var(--text-sm);
           color: var(--text-muted);
           font-style: italic;
         }
 
-        /* Target input */
         .target-input {
           width: 64px;
+          min-height: 32px;
           padding: 3px 6px;
-          font-size: 12px;
-          background: var(--bg-input, rgba(255,255,255,0.08));
-          border: 1px solid var(--border-subtle, rgba(255,255,255,0.12));
+          font-size: var(--text-sm);
+          font-family: var(--font-family);
+          background: var(--bg-input);
+          border: 1px solid var(--border-subtle);
           border-radius: 4px;
           color: var(--text-primary);
           text-align: right;
+          font-variant-numeric: tabular-nums;
         }
 
         .target-input:focus {
-          outline: none;
-          border-color: var(--color-accent, #4f8ef7);
+          outline: 2px solid var(--accent-blue);
+          outline-offset: 2px;
+          border-color: var(--accent-blue);
         }
 
-        /* Edit footer */
         .edit-footer {
           display: flex;
           align-items: center;
@@ -515,12 +567,13 @@ export default function Breakdown() {
         }
 
         .total-indicator {
-          font-size: 12px;
+          font-size: var(--text-sm);
           color: var(--text-muted);
+          font-variant-numeric: tabular-nums;
         }
 
         .total-indicator--over {
-          color: #f87171;
+          color: var(--negative);
         }
 
         .edit-actions {
@@ -528,12 +581,13 @@ export default function Breakdown() {
           gap: calc(var(--spacing) * 1);
         }
 
-        /* Edit button */
         .edit-btn {
-          font-size: 12px;
-          padding: 4px 12px;
+          font-size: var(--text-sm);
+          font-family: var(--font-family);
+          padding: 6px 12px;
+          min-height: 32px;
           border-radius: 6px;
-          border: 1px solid var(--border-subtle, rgba(255,255,255,0.15));
+          border: 1px solid var(--border-subtle);
           background: transparent;
           color: var(--text-muted);
           cursor: pointer;
@@ -541,19 +595,18 @@ export default function Breakdown() {
         }
 
         .edit-btn:hover {
-          border-color: var(--color-accent, #4f8ef7);
-          color: var(--color-accent, #4f8ef7);
+          border-color: var(--accent-blue);
+          color: var(--accent-blue);
         }
 
         .edit-btn--save {
-          background: var(--color-accent, #4f8ef7);
-          border-color: var(--color-accent, #4f8ef7);
-          color: white;
+          background: var(--accent-blue);
+          border-color: var(--accent-blue);
+          color: var(--text-primary);
         }
 
         .edit-btn--save:hover {
           opacity: 0.85;
-          color: white;
         }
 
         .edit-btn--save:disabled {
@@ -564,6 +617,25 @@ export default function Breakdown() {
         .edit-btn--cancel:hover {
           border-color: var(--text-muted);
           color: var(--text-primary);
+        }
+
+        @media (max-width: 600px) {
+          .tab-btn {
+            font-size: var(--text-base);
+          }
+
+          .gap-header, .gap-table-row {
+            grid-template-columns: minmax(80px, 120px) 1fr;
+          }
+
+          .edit-btn {
+            min-height: 44px;
+            padding: 10px 16px;
+          }
+
+          .target-input {
+            min-height: 44px;
+          }
         }
       `}</style>
     </div>

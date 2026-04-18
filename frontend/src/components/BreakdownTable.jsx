@@ -37,11 +37,11 @@ export default function BreakdownTable({ data }) {
         }
 
         .breakdown-table th {
-          font-size: 11px;
+          font-size: var(--text-xs);
+          font-weight: 500;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.6px;
           color: var(--text-muted);
-          font-weight: 400;
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
           text-align: left;
         }
@@ -49,8 +49,9 @@ export default function BreakdownTable({ data }) {
         .breakdown-table td {
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
           border-top: 1px solid rgba(255, 255, 255, 0.04);
-          font-size: 13px;
+          font-size: var(--text-base);
           color: var(--text-secondary);
+          font-variant-numeric: tabular-nums;
         }
 
         .breakdown-table .text-right {

@@ -16,6 +16,11 @@
   --spacing: 8px;
   --radius: 8px;
 
+  /* Surface & border utilities */
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-input: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.12);
+
   /* Type scale */
   --font-family: 'Manrope', system-ui, sans-serif;
   --text-xs: 0.6875rem;   /* 11px — uppercase labels */
