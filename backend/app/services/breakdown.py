@@ -94,7 +94,7 @@ def get_breakdown(db: Session) -> dict:
         if row.broker:
             isin_broker[row.isin][row.broker] += vol
 
-    def primary_label(isin_map, isin, fallback="Unknown") -> str:
+    def primary_label(isin_map, isin, fallback="Unknown") -> str | None:
         buckets = isin_map.get(isin)
         if not buckets:
             return fallback
@@ -134,7 +134,11 @@ def get_breakdown(db: Session) -> dict:
         asset_type = si.asset_type if si and si.asset_type else "Unknown"
         industry = si.industry if si and si.industry else "Unknown"
         mc_bucket = _get_market_cap_bucket(si.market_cap if si else None)
-        exchange = primary_label(isin_exchange, h.isin)
+        # Prefer the yfinance-sourced exchange name (human-readable) stored in SecurityInfo;
+        # fall back to the raw transaction exchange code only if SecurityInfo has no data.
+        si_exchange = si.exchange if si and si.exchange else None
+        txn_exchange = primary_label(isin_exchange, h.isin, fallback=None)
+        exchange = si_exchange or txn_exchange or "Unknown"
         broker = primary_label(isin_broker, h.isin)
 
         for agg, label in [

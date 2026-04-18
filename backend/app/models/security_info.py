@@ -14,5 +14,6 @@ class SecurityInfo(Base):
     country: Mapped[str | None] = mapped_column(String(100))
     asset_type: Mapped[str | None] = mapped_column(String(50))
     market_cap: Mapped[float | None] = mapped_column(Numeric(20, 2))
+    exchange: Mapped[str | None] = mapped_column(String(50))
     logo_url: Mapped[str | None] = mapped_column(String(500))
     fetched_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now())

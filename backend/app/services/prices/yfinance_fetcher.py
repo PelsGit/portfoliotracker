@@ -95,8 +95,57 @@ def _logo_from_website(website: str | None) -> str | None:
     return f"https://www.google.com/s2/favicons?sz=64&domain={domain}" if domain else None
 
 
+_EXCHANGE_NAMES: dict[str, str] = {
+    "NMS": "NASDAQ",
+    "NGM": "NASDAQ",
+    "NCM": "NASDAQ",
+    "NYQ": "NYSE",
+    "PCX": "NYSE Arca",
+    "ASE": "NYSE American",
+    "BTS": "BATS",
+    "BATS": "BATS",
+    "DARK": "OTC/Dark Pool",
+    "DRCTEDGE": "Direct Edge",
+    "IBKRATS": "IBKR ATS",
+    "ARCA": "NYSE Arca",
+    "GER": "XETRA",
+    "FRA": "Frankfurt",
+    "AMS": "Euronext Amsterdam",
+    "PAR": "Euronext Paris",
+    "BRU": "Euronext Brussels",
+    "LSE": "London",
+    "IOB": "London IOB",
+    "STO": "Stockholm",
+    "OSL": "Oslo",
+    "HEL": "Helsinki",
+    "CPH": "Copenhagen",
+    "SWX": "SIX Swiss",
+    "VIE": "Vienna",
+    "MIL": "Borsa Italiana",
+    "MCE": "Madrid",
+    "LIS": "Lisbon",
+    "TSX": "Toronto",
+    "TOR": "Toronto",
+    "ASX": "ASX",
+    "TYO": "Tokyo",
+    "HKG": "Hong Kong",
+    "SHH": "Shanghai",
+    "SHZ": "Shenzhen",
+    "KSC": "Korea",
+    "NSI": "NSE India",
+    "BSE": "BSE India",
+    "SGX": "Singapore",
+}
+
+
+def _exchange_name(code: str | None) -> str | None:
+    if not code:
+        return None
+    return _EXCHANGE_NAMES.get(code, code)
+
+
 def _upsert_security_info(db: Session, isin: str, ticker) -> None:
-    """Extract sector/country/asset_type/market_cap from yfinance ticker.info and upsert."""
+    """Extract sector/country/asset_type/market_cap/exchange from yfinance ticker.info and upsert."""
     try:
         info = ticker.info
         sector = info.get("sector")
@@ -105,6 +154,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
         quote_type = info.get("quoteType")
         logo_url = info.get("logo_url") or _logo_from_website(info.get("website"))
         market_cap = info.get("marketCap")
+        exchange = _exchange_name(info.get("exchange"))
 
         asset_type_map = {"EQUITY": "Stock", "ETF": "ETF", "MUTUALFUND": "Fund"}
         asset_type = asset_type_map.get(quote_type, quote_type)
@@ -116,6 +166,7 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
             country=country,
             asset_type=asset_type,
             market_cap=market_cap,
+            exchange=exchange,
             logo_url=logo_url,
             fetched_at=datetime.now(timezone.utc),
         )
@@ -127,13 +178,14 @@ def _upsert_security_info(db: Session, isin: str, ticker) -> None:
                 "country": country,
                 "asset_type": asset_type,
                 "market_cap": market_cap,
+                "exchange": exchange,
                 "logo_url": logo_url,
                 "fetched_at": datetime.now(timezone.utc),
             },
         )
         db.execute(stmt)
         db.commit()
-        logger.info("Upserted security info for %s: sector=%s, country=%s, type=%s", isin, sector, country, asset_type)
+        logger.info("Upserted security info for %s: sector=%s exchange=%s", isin, sector, exchange)
     except Exception:
         logger.exception("Failed to fetch security info for %s", isin)
         db.rollback()
