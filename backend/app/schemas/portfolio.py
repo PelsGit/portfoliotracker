@@ -60,6 +60,24 @@ class EarningsDateOut(BaseModel):
     earnings_date: str  # ISO date string
 
 
+class GoalIn(BaseModel):
+    name: str
+    target_weight: float  # 0–100
+
+
+class GoalOut(GoalIn):
+    id: int
+    dimension: str
+
+    model_config = {"from_attributes": True}
+
+
+class GoalsOut(BaseModel):
+    sector: list[GoalOut]
+    region: list[GoalOut]
+    asset_type: list[GoalOut]
+
+
 class PerformanceOut(BaseModel):
     time_series: list[PortfolioValuePoint]
     twr_series: list[PortfolioValuePoint] = []  # daily cumulative TWR in % (cash-flow adjusted)

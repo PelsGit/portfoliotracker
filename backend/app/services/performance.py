@@ -37,10 +37,14 @@ def _build_time_series(
 
     isins = list({t.isin for t in transactions})
 
-    # Prices are stored normalised to EUR by the fetcher — no FX conversion needed here
+    # Fetch prices from 10 calendar days before start_date to pre-seed last_known_price.
+    # Without this warm-up, the first calendar day of any period may have only a subset
+    # of ISINs priced (e.g. on a US holiday), producing an artificially low portfolio
+    # value that causes a spurious spike on day 2 and breaks the TWR series.
+    pre_start = start_date - timedelta(days=10)
     prices = (
         db.query(Price)
-        .filter(Price.isin.in_(isins), Price.date >= start_date, Price.date <= end_date)
+        .filter(Price.isin.in_(isins), Price.date >= pre_start, Price.date <= end_date)
         .order_by(Price.date)
         .all()
     )
@@ -74,6 +78,10 @@ def _build_time_series(
         day_prices = price_map.get(d, {})
         for isin in day_prices:
             last_known_price[isin] = day_prices[isin]
+
+        # Skip pre-warmup days — only emit series points from start_date onwards
+        if d < start_date:
+            continue
 
         portfolio_value = Decimal(0)
         for isin, shares in shares_held.items():
