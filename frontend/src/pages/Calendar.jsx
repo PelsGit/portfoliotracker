@@ -24,6 +24,36 @@ const PALETTE = [
   '#94a3b8', '#e879f9',
 ];
 
+function CompanyIcon({ logoUrl, name, color, size }) {
+  if (logoUrl) {
+    return (
+      <img
+        src={logoUrl}
+        alt=""
+        aria-hidden="true"
+        width={size}
+        height={size}
+        loading="lazy"
+        style={{ borderRadius: 3, objectFit: 'contain', flexShrink: 0 }}
+        onError={(e) => { e.target.style.display = 'none'; }}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: color,
+        flexShrink: 0,
+        display: 'inline-block',
+      }}
+    />
+  );
+}
+
 function isinColor(isin, colorMap) {
   if (!colorMap[isin]) {
     const idx = Object.keys(colorMap).length % PALETTE.length;
@@ -156,7 +186,7 @@ export default function Calendar() {
                         title={e.product_name}
                         aria-label={e.product_name}
                       >
-                        <span className="cal-event-dot" aria-hidden="true" />
+                        <CompanyIcon logoUrl={e.logo_url} name={e.product_name} color={color} size={12} />
                         <span className="cal-event-name">{e.product_name}</span>
                       </span>
                     );
@@ -184,7 +214,7 @@ export default function Calendar() {
                   key={`${e.isin}-${e.earnings_date}`}
                   className={`cal-upcoming-row${isPast ? ' cal-upcoming-row--past' : ''}`}
                 >
-                  <span className="cal-upcoming-dot" style={{ background: color }} aria-hidden="true" />
+                  <CompanyIcon logoUrl={e.logo_url} name={e.product_name} color={color} size={16} />
                   <span className="cal-upcoming-name">{e.product_name}</span>
                   <span className="cal-upcoming-date">{label}</span>
                 </div>
@@ -312,14 +342,6 @@ export default function Calendar() {
           cursor: default;
         }
 
-        .cal-event-dot {
-          width: 5px;
-          height: 5px;
-          border-radius: 50%;
-          background: var(--event-color, var(--accent-blue));
-          flex-shrink: 0;
-        }
-
         .cal-event-name {
           overflow: hidden;
           text-overflow: ellipsis;
@@ -360,13 +382,6 @@ export default function Calendar() {
         }
 
         .cal-upcoming-row--past { opacity: 0.55; }
-
-        .cal-upcoming-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
 
         .cal-upcoming-name {
           font-size: var(--text-sm);

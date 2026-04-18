@@ -58,6 +58,7 @@ class EarningsDateOut(BaseModel):
     isin: str
     product_name: str
     earnings_date: str  # ISO date string
+    logo_url: str | None = None
 
 
 class GoalIn(BaseModel):
