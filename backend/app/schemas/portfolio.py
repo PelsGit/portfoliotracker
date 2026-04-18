@@ -18,6 +18,17 @@ class HoldingOut(BaseModel):
     logo_url: str | None = None
     is_cash: bool = False
 
+    currency: str = "EUR"
+    current_price_local: Decimal | None = None
+
+    total_invested: Decimal = Decimal(0)
+    realised_pnl: Decimal = Decimal(0)
+    realised_pnl_pct: Decimal | None = None
+    holding_period_days: int | None = None
+    dividends_total: Decimal = Decimal(0)
+    total_pnl: Decimal | None = None
+    total_pnl_pct: Decimal | None = None
+
     model_config = {"from_attributes": True}
 
 
@@ -46,6 +57,10 @@ class BreakdownOut(BaseModel):
     sector: list[BreakdownItem]
     region: list[BreakdownItem]
     asset_type: list[BreakdownItem]
+    industry: list[BreakdownItem] = []
+    market_cap: list[BreakdownItem] = []
+    exchange: list[BreakdownItem] = []
+    broker: list[BreakdownItem] = []
 
 
 class BenchmarkSeries(BaseModel):

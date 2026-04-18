@@ -161,6 +161,7 @@ def parse_account_csv(file_content: bytes | str) -> list[dict]:
                     "isin": trade_row[COL_ISIN].strip(),
                     "product_name": trade_row[COL_PRODUCT].strip() or None,
                     "exchange": None,
+                    "broker": "DEGIRO",
                     "local_currency": local_currency,
                     "date": parse_date(trade_row[COL_DATUM], trade_row[COL_TIJD]),
                     "quantity": quantity,

@@ -120,6 +120,7 @@ def parse_trading212_csv(content: bytes | str) -> list[dict]:
                 "isin": isin,
                 "product_name": row.get("Name", "").strip() or None,
                 "exchange": row.get("Ticker", "").strip() or None,
+                "broker": "Trading212",
                 "local_currency": local_currency,
                 "date": date,
                 "quantity": quantity,

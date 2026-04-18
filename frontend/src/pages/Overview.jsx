@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
-import DonutChart from '../components/DonutChart';
+import BreakdownSection from '../components/BreakdownSection';
 import HoldingsTable from '../components/HoldingsTable';
-import HorizontalBarChart from '../components/HorizontalBarChart';
 import MetricCard from '../components/MetricCard';
-import TopHoldingsList from '../components/TopHoldingsList';
 import { formatCurrency, formatPercent } from '../utils/format';
 
 export default function Overview() {
@@ -162,24 +160,11 @@ export default function Overview() {
         />
       </div>
 
-      <div className="charts-row">
-        <div className="chart-card">
-          <h2 className="section-title">Sector</h2>
-          <DonutChart data={breakdown?.sector} size="small" />
-        </div>
-        <div className="chart-card">
-          <h2 className="section-title">Region</h2>
-          <HorizontalBarChart data={breakdown?.region} compact />
-        </div>
-        <div className="chart-card">
-          <h2 className="section-title">Top Holdings</h2>
-          <TopHoldingsList holdings={holdings} />
-        </div>
-      </div>
+      <BreakdownSection breakdown={breakdown} />
 
       <div className="holdings-section">
         <h2 className="section-title">Holdings</h2>
-        <HoldingsTable holdings={holdings} compact />
+        <HoldingsTable holdings={holdings} />
       </div>
 
       <style>{`
@@ -243,13 +228,6 @@ export default function Overview() {
           letter-spacing: 0.6px;
           color: var(--text-muted);
           margin-bottom: calc(var(--spacing) * 1.5);
-        }
-
-        .charts-row {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-          gap: calc(var(--spacing) * 2);
-          margin-bottom: calc(var(--spacing) * 3);
         }
 
         .holdings-section {

@@ -3,6 +3,7 @@ export function formatCurrency(value, currency = 'EUR') {
   return new Intl.NumberFormat('nl-NL', {
     style: 'currency',
     currency,
+    currencyDisplay: 'narrowSymbol',
   }).format(value);
 }
 
