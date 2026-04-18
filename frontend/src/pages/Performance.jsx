@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
   Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -16,10 +17,12 @@ import { formatCurrency, formatPercent } from '../utils/format';
 const PERIODS = ['1M', '3M', '6M', '1Y', 'YTD', 'All'];
 
 const BENCHMARKS_META = [
-  { name: 'S&P 500',       color: '#4ade80' },
+  { name: 'S&P 500',        color: '#fbbf24' },
   { name: 'FTSE All-World', color: '#fb923c' },
-  { name: 'Nasdaq 100',    color: '#c084fc' },
+  { name: 'Nasdaq 100',     color: '#a78bfa' },
 ];
+
+// Mirrors --accent-blue token; kept as constant because Recharts props don't accept CSS vars
 const PORTFOLIO_COLOR = '#6c8cff';
 
 /** Forward-fill: given a sorted [{date,value}] array, find the last value ≤ targetDate */
@@ -49,7 +52,7 @@ function CustomTooltip({ active, payload }) {
           <span className="perf-tooltip-label">{entry.name}</span>
           <span
             className="perf-tooltip-value"
-            style={{ color: entry.value >= 0 ? '#4ade80' : '#f87171' }}
+            style={{ color: entry.value >= 0 ? 'var(--positive)' : 'var(--negative)' }}
           >
             {fmtPct(entry.value)}
           </span>
@@ -63,9 +66,7 @@ export default function Performance() {
   const [period, setPeriod] = useState('1Y');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeBenchmarks, setActiveBenchmarks] = useState(
-    BENCHMARKS_META.map((b) => b.name)
-  );
+  const [activeBenchmarks, setActiveBenchmarks] = useState(['FTSE All-World']);
 
   useEffect(() => {
     setLoading(true);
@@ -79,14 +80,17 @@ export default function Performance() {
   const twrSeries = data?.twr_series ?? [];
   const benchmarks = data?.benchmarks ?? [];
 
-  // Build chart data: portfolio TWR % + forward-filled benchmark % per date
-  const chartData = twrSeries.map((pt) => {
-    const row = { date: pt.date, Portfolio: Number(pt.value) };
-    for (const b of benchmarks) {
-      row[b.name] = forwardFill(b.time_series, pt.date);
-    }
-    return row;
-  });
+  const chartData = useMemo(
+    () =>
+      twrSeries.map((pt) => {
+        const row = { date: pt.date, Portfolio: Number(pt.value) };
+        for (const b of benchmarks) {
+          row[b.name] = forwardFill(b.time_series, pt.date);
+        }
+        return row;
+      }),
+    [twrSeries, benchmarks]
+  );
 
   const toggleBenchmark = (name) =>
     setActiveBenchmarks((prev) =>
@@ -109,12 +113,17 @@ export default function Performance() {
       <h1 className="page-title">Performance</h1>
 
       <div className="toolbar">
-        <div className="period-selector">
+        <div
+          role="group"
+          aria-label="Time period"
+          className="period-selector"
+        >
           {PERIODS.map((p) => (
             <button
               key={p}
               className={`period-btn${period === p ? ' period-btn--active' : ''}`}
               onClick={() => setPeriod(p)}
+              aria-pressed={period === p}
             >
               {p}
             </button>
@@ -130,6 +139,7 @@ export default function Performance() {
                 className={`benchmark-btn${active ? ' benchmark-btn--active' : ''}`}
                 style={active ? { '--bm-color': b.color } : {}}
                 onClick={() => toggleBenchmark(b.name)}
+                aria-pressed={active}
               >
                 <span
                   className="benchmark-dot"
@@ -172,65 +182,80 @@ export default function Performance() {
       </div>
 
       <div className="chart-card">
-        {loading ? (
-          <p className="loading-text">Loading...</p>
-        ) : twrSeries.length === 0 ? (
+        {loading && (
+          <p role="status" aria-live="polite" className="loading-text">
+            Loading…
+          </p>
+        )}
+        {!loading && twrSeries.length === 0 && (
           <p className="loading-text">No performance data available.</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={360}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => (v >= 0 ? '+' : '') + Number(v).toFixed(1) + '%'}
-                width={65}
-              />
-              <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" strokeDasharray="3 3" />
-              <Tooltip content={<CustomTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="Portfolio"
-                name="Portfolio"
-                stroke={PORTFOLIO_COLOR}
-                strokeWidth={2}
-                dot={false}
-                connectNulls
-              />
-              {benchmarks.map((b) => {
-                const meta = BENCHMARKS_META.find((m) => m.name === b.name);
-                if (!activeBenchmarks.includes(b.name)) return null;
-                return (
-                  <Line
-                    key={b.ticker}
-                    type="monotone"
-                    dataKey={b.name}
-                    name={b.name}
-                    stroke={meta?.color ?? '#888'}
-                    strokeWidth={1.5}
-                    dot={false}
-                    strokeDasharray="4 2"
-                    connectNulls
-                  />
-                );
-              })}
-            </LineChart>
-          </ResponsiveContainer>
+        )}
+        {!loading && twrSeries.length > 0 && (
+          <figure aria-label={`Portfolio performance — ${period}`} style={{ margin: 0 }}>
+            <ResponsiveContainer width="100%" height={360}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="portfolioFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={PORTFOLIO_COLOR} stopOpacity={0.15} />
+                    <stop offset="95%" stopColor={PORTFOLIO_COLOR} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-row)" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => (v >= 0 ? '+' : '') + Number(v).toFixed(1) + '%'}
+                  width={65}
+                />
+                <ReferenceLine y={0} stroke="var(--border-subtle)" strokeDasharray="3 3" />
+                <Tooltip content={<CustomTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="Portfolio"
+                  name="Portfolio"
+                  stroke={PORTFOLIO_COLOR}
+                  strokeWidth={2.5}
+                  fill="url(#portfolioFill)"
+                  dot={false}
+                  connectNulls
+                />
+                {benchmarks.map((b) => {
+                  const meta = BENCHMARKS_META.find((m) => m.name === b.name);
+                  if (!activeBenchmarks.includes(b.name)) return null;
+                  return (
+                    <Line
+                      key={b.ticker}
+                      type="monotone"
+                      dataKey={b.name}
+                      name={b.name}
+                      stroke={meta?.color ?? '#888'}
+                      strokeWidth={1.5}
+                      strokeOpacity={0.65}
+                      dot={false}
+                      strokeDasharray="4 2"
+                      connectNulls
+                    />
+                  );
+                })}
+              </AreaChart>
+            </ResponsiveContainer>
+          </figure>
         )}
       </div>
 
       <style>{`
         .page-title {
-          font-size: 17px;
-          font-weight: 500;
+          font-size: var(--text-lg);
+          font-weight: 600;
           color: var(--text-primary);
+          letter-spacing: -0.2px;
           margin-bottom: calc(var(--spacing) * 2);
         }
 
@@ -252,9 +277,12 @@ export default function Performance() {
           border: var(--border-card);
           border-radius: var(--radius);
           color: var(--text-secondary);
-          font-size: 12px;
-          padding: calc(var(--spacing) * 0.75) calc(var(--spacing) * 2);
+          font-size: var(--text-sm);
+          font-family: var(--font-family);
+          padding: 6px 14px;
+          min-height: 32px;
           cursor: pointer;
+          transition: color 0.15s;
         }
 
         .period-btn:hover { color: var(--text-primary); }
@@ -269,29 +297,35 @@ export default function Performance() {
           display: flex;
           gap: calc(var(--spacing) * 1);
           margin-left: auto;
+          flex-wrap: wrap;
         }
 
         .benchmark-btn {
           display: flex;
           align-items: center;
           gap: 6px;
-          background: var(--bg-card);
+          background: transparent;
           border: var(--border-card);
           border-radius: var(--radius);
           color: var(--text-muted);
-          font-size: 12px;
-          padding: calc(var(--spacing) * 0.75) calc(var(--spacing) * 1.5);
+          font-size: var(--text-sm);
+          font-family: var(--font-family);
+          padding: 6px 12px;
+          min-height: 32px;
           cursor: pointer;
-          opacity: 0.5;
-          transition: opacity 0.15s, color 0.15s;
+          transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+
+        .benchmark-btn:hover {
+          color: var(--text-primary);
+          border-color: var(--border-subtle);
         }
 
         .benchmark-btn--active {
           color: var(--text-primary);
-          opacity: 1;
+          border-color: var(--bm-color, var(--accent-blue));
+          background: color-mix(in srgb, var(--bm-color, var(--accent-blue)) 8%, transparent);
         }
-
-        .benchmark-btn:hover { opacity: 0.8; }
 
         .benchmark-dot {
           width: 8px;
@@ -300,27 +334,13 @@ export default function Performance() {
           flex-shrink: 0;
         }
 
-        .metrics-grid--4 {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: calc(var(--spacing) * 2);
-          margin-bottom: calc(var(--spacing) * 3);
-        }
-
-        .chart-card {
-          background: var(--bg-card);
-          border: var(--border-card);
-          border-radius: var(--radius);
-          padding: calc(var(--spacing) * 3);
-        }
-
         .loading-text {
           color: var(--text-muted);
-          font-size: 13px;
+          font-size: var(--text-base);
         }
 
         .perf-tooltip {
-          background: #1e2533;
+          background: var(--bg-tooltip);
           border-radius: 6px;
           padding: 8px 12px;
           display: flex;
@@ -331,7 +351,7 @@ export default function Performance() {
 
         .perf-tooltip-date {
           color: var(--text-muted);
-          font-size: 11px;
+          font-size: var(--text-xs);
           margin-bottom: 2px;
         }
 
@@ -350,13 +370,27 @@ export default function Performance() {
 
         .perf-tooltip-label {
           color: var(--text-secondary);
-          font-size: 12px;
+          font-size: var(--text-sm);
           flex: 1;
         }
 
         .perf-tooltip-value {
-          font-size: 12px;
+          font-size: var(--text-sm);
           font-weight: 500;
+          font-variant-numeric: tabular-nums;
+        }
+
+        @media (max-width: 600px) {
+          .period-btn,
+          .benchmark-btn {
+            min-height: 44px;
+            padding: 10px 14px;
+          }
+
+          .benchmark-selector {
+            margin-left: 0;
+            width: 100%;
+          }
         }
       `}</style>
     </div>

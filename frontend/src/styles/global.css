@@ -71,3 +71,22 @@ a {
   outline-offset: 2px;
   border-radius: 3px;
 }
+
+/* ── Shared layout primitives ───────────────────────── */
+
+.metrics-grid {
+  display: grid;
+  gap: calc(var(--spacing) * 2);
+  margin-bottom: calc(var(--spacing) * 3);
+}
+
+.metrics-grid--4 {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.chart-card {
+  background: var(--bg-card);
+  border: var(--border-card);
+  border-radius: var(--radius);
+  padding: calc(var(--spacing) * 3);
+}

@@ -236,16 +236,6 @@ export default function Overview() {
           font-size: 13px;
         }
 
-        .metrics-grid {
-          display: grid;
-          gap: calc(var(--spacing) * 2);
-          margin-bottom: calc(var(--spacing) * 3);
-        }
-
-        .metrics-grid--4 {
-          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        }
-
         .section-title {
           font-size: var(--text-xs);
           font-weight: 500;
@@ -260,13 +250,6 @@ export default function Overview() {
           grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
           gap: calc(var(--spacing) * 2);
           margin-bottom: calc(var(--spacing) * 3);
-        }
-
-        .chart-card {
-          background: var(--bg-card);
-          border: var(--border-card);
-          border-radius: var(--radius);
-          padding: calc(var(--spacing) * 3);
         }
 
         .holdings-section {
