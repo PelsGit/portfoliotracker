@@ -163,7 +163,7 @@ export default function HoldingsTable({ holdings, compact = false }) {
 
         .holdings-table td {
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
-          border-top: 1px solid rgba(255, 255, 255, 0.04);
+          border-top: 1px solid var(--border-row);
           font-size: var(--text-base);
           color: var(--text-secondary);
           font-variant-numeric: tabular-nums;

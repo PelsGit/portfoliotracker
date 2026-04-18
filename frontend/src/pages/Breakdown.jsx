@@ -24,6 +24,10 @@ function GapBar({ actual, target }) {
           <div className="gap-bar-track">
             <div
               className="gap-bar gap-bar--actual"
+              role="progressbar"
+              aria-valuenow={actual}
+              aria-valuemin={0}
+              aria-valuemax={100}
               style={{ transform: `scaleX(${Math.min(actual, 100) / 100})` }}
             />
           </div>
@@ -35,6 +39,10 @@ function GapBar({ actual, target }) {
               <div className="gap-bar-track">
                 <div
                   className="gap-bar gap-bar--target"
+                  role="progressbar"
+                  aria-valuenow={target}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
                   style={{ transform: `scaleX(${Math.min(target, 100) / 100})` }}
                 />
               </div>
@@ -245,7 +253,22 @@ export default function Breakdown() {
     <div>
       <h1 className="page-title">Breakdown</h1>
 
-      <div className="tab-bar" role="tablist" aria-label="Breakdown views">
+      <div
+        className="tab-bar"
+        role="tablist"
+        aria-label="Breakdown views"
+        onKeyDown={(e) => {
+          const tabs = ['allocation', 'goals'];
+          const idx = tabs.indexOf(activeTab);
+          if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            setActiveTab(tabs[(idx + 1) % tabs.length]);
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            setActiveTab(tabs[(idx - 1 + tabs.length) % tabs.length]);
+          }
+        }}
+      >
         <button
           role="tab"
           id="tab-allocation"
@@ -501,8 +524,8 @@ export default function Breakdown() {
         }
 
         .gap-bar--target {
-          background: rgba(160, 160, 160, 0.5);
-          border: 1px dashed rgba(160, 160, 160, 0.8);
+          background: color-mix(in srgb, var(--text-muted) 50%, transparent);
+          border: 1px dashed color-mix(in srgb, var(--text-muted) 80%, transparent);
           box-sizing: border-box;
         }
 
@@ -527,9 +550,9 @@ export default function Breakdown() {
           font-variant-numeric: tabular-nums;
         }
 
-        .gap-delta--ok    { color: var(--positive); background: rgba(52, 211, 153, 0.1); }
-        .gap-delta--over  { color: var(--negative); background: rgba(248, 113, 113, 0.1); }
-        .gap-delta--under { color: var(--accent-blue); background: rgba(108, 140, 255, 0.1); }
+        .gap-delta--ok    { color: var(--positive);    background: color-mix(in srgb, var(--positive)    10%, transparent); }
+        .gap-delta--over  { color: var(--negative);    background: color-mix(in srgb, var(--negative)    10%, transparent); }
+        .gap-delta--under { color: var(--accent-blue); background: color-mix(in srgb, var(--accent-blue) 10%, transparent); }
 
         .gap-no-target {
           font-size: var(--text-sm);

@@ -20,6 +20,7 @@
   --bg-hover: rgba(255, 255, 255, 0.05);
   --bg-input: rgba(255, 255, 255, 0.08);
   --border-subtle: rgba(255, 255, 255, 0.12);
+  --border-row: rgba(255, 255, 255, 0.04);
 
   /* Type scale */
   --font-family: 'Manrope', system-ui, sans-serif;
