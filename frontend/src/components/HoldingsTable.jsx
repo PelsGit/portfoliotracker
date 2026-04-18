@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { formatCurrency, formatNumber, formatPercent } from '../utils/format';
 
 const COMPACT_COLUMNS = [
@@ -61,7 +61,7 @@ export default function HoldingsTable({ holdings, compact = false }) {
     }
   };
 
-  const sorted = [...holdings].sort((a, b) => {
+  const sorted = useMemo(() => [...holdings].sort((a, b) => {
     const aVal = a[sortKey] != null ? Number(a[sortKey]) : -Infinity;
     const bVal = b[sortKey] != null ? Number(b[sortKey]) : -Infinity;
     if (isNaN(aVal) && isNaN(bVal)) return String(a[sortKey]).localeCompare(String(b[sortKey])) * (sortDir === 'asc' ? 1 : -1);
@@ -70,7 +70,7 @@ export default function HoldingsTable({ holdings, compact = false }) {
     if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
     if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
     return 0;
-  });
+  }), [holdings, sortKey, sortDir]);
 
   return (
     <div className="holdings-card">
@@ -82,10 +82,13 @@ export default function HoldingsTable({ holdings, compact = false }) {
                 key={col.key}
                 className={col.align === 'right' ? 'text-right' : ''}
                 onClick={() => handleSort(col.key)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSort(col.key); } }}
+                tabIndex={0}
+                aria-sort={sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
               >
                 {col.label}
                 {sortKey === col.key && (
-                  <span className="sort-indicator">{sortDir === 'asc' ? ' \u25B2' : ' \u25BC'}</span>
+                  <span className="sort-indicator" aria-hidden="true">{sortDir === 'asc' ? ' \u25B2' : ' \u25BC'}</span>
                 )}
               </th>
             ))}
@@ -108,6 +111,7 @@ export default function HoldingsTable({ holdings, compact = false }) {
                           src={holding.logo_url}
                           alt=""
                           className="holding-logo"
+                          loading="lazy"
                           onError={(e) => { e.target.style.display = 'none'; }}
                         />
                       ) : null}
@@ -141,11 +145,11 @@ export default function HoldingsTable({ holdings, compact = false }) {
         }
 
         .holdings-table th {
-          font-size: 11px;
+          font-size: var(--text-xs);
+          font-weight: 500;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.6px;
           color: var(--text-muted);
-          font-weight: 400;
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
           text-align: left;
           cursor: pointer;
@@ -159,9 +163,10 @@ export default function HoldingsTable({ holdings, compact = false }) {
 
         .holdings-table td {
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
-          border-top: 1px solid rgba(255, 255, 255, 0.04);
-          font-size: 13px;
+          border-top: 1px solid var(--border-row);
+          font-size: var(--text-base);
           color: var(--text-secondary);
+          font-variant-numeric: tabular-nums;
         }
 
         .holdings-table .text-right {
@@ -190,7 +195,7 @@ export default function HoldingsTable({ holdings, compact = false }) {
           object-fit: contain;
           margin-right: 8px;
           flex-shrink: 0;
-          background: var(--bg-secondary, #1e2533);
+          background: var(--bg-secondary);
         }
 
         .cash-row td {

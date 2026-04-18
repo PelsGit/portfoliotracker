@@ -21,20 +21,24 @@ export default function MetricCard({ label, value, delta, deltaType }) {
         }
 
         .metric-label {
-          font-size: 11px;
+          font-size: var(--text-xs);
+          font-weight: 500;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.6px;
           color: var(--text-muted);
         }
 
         .metric-value {
-          font-size: 20px;
-          font-weight: 500;
+          font-size: var(--text-xl);
+          font-weight: 600;
+          line-height: 1.2;
           color: var(--text-primary);
+          font-variant-numeric: tabular-nums;
         }
 
         .metric-delta {
-          font-size: 13px;
+          font-size: var(--text-base);
+          font-variant-numeric: tabular-nums;
         }
 
         .metric-delta--positive {

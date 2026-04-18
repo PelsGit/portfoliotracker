@@ -1,10 +1,6 @@
-import { Cell, Pie, PieChart, Tooltip } from 'recharts';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { formatCurrency, formatPercent } from '../utils/format';
-
-const COLORS = [
-  '#6c8cff', '#34d399', '#f87171', '#fbbf24', '#a78bfa',
-  '#f472b6', '#38bdf8', '#fb923c', '#4ade80', '#e879f9',
-];
+import { CHART_COLORS as COLORS } from '../styles/tokens';
 
 function CustomTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
@@ -23,31 +19,33 @@ export default function DonutChart({ data, size = 'large' }) {
     return <p className="donut-empty">No data available</p>;
   }
 
-  const outerRadius = size === 'large' ? 110 : 70;
-  const innerRadius = size === 'large' ? 62 : 38;
-  const chartSize = size === 'large' ? 260 : 180;
+  const maxWidth = size === 'large' ? 280 : 200;
+  const outerPct = '42%';
+  const innerPct = size === 'large' ? '24%' : '21%';
 
   return (
     <div className="donut-wrap">
-      <div className="donut-chart-area">
-        <PieChart width={chartSize} height={chartSize}>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            cx={chartSize / 2}
-            cy={chartSize / 2}
-            innerRadius={innerRadius}
-            outerRadius={outerRadius}
-            paddingAngle={1}
-            strokeWidth={0}
-          >
-            {data.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} />
-            ))}
-          </Pie>
-          <Tooltip content={<CustomTooltip />} />
-        </PieChart>
+      <div className="donut-chart-area" style={{ maxWidth }}>
+        <ResponsiveContainer width="100%" aspect={1}>
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={innerPct}
+              outerRadius={outerPct}
+              paddingAngle={1}
+              strokeWidth={0}
+            >
+              {data.map((_, i) => (
+                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
 
       <ul className="donut-legend">
@@ -69,6 +67,7 @@ export default function DonutChart({ data, size = 'large' }) {
         }
 
         .donut-chart-area {
+          width: 100%;
           flex-shrink: 0;
         }
 
@@ -80,7 +79,8 @@ export default function DonutChart({ data, size = 'large' }) {
         }
 
         .donut-tooltip {
-          background: #1e2533;
+          background: var(--bg-tooltip);
+          border: var(--border-card);
           border-radius: 6px;
           padding: 8px 12px;
           display: flex;
@@ -94,7 +94,7 @@ export default function DonutChart({ data, size = 'large' }) {
         }
 
         .donut-tooltip-value {
-          color: #fff;
+          color: var(--text-primary);
           font-size: 13px;
           font-weight: 500;
         }

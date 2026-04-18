@@ -7,6 +7,7 @@ import {
   YAxis,
 } from 'recharts';
 import { formatCurrency, formatPercent } from '../utils/format';
+import { ACCENT_BLUE } from '../styles/tokens';
 
 function CustomTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
@@ -41,7 +42,7 @@ export default function HorizontalBarChart({ data, compact = false }) {
             axisLine={false}
           />
           <Tooltip content={<CustomTooltip />} cursor={false} />
-          <Bar dataKey="value" fill="#6c8cff" radius={[0, 4, 4, 0]} barSize={compact ? 14 : 20} />
+          <Bar dataKey="value" fill={ACCENT_BLUE} radius={[0, 4, 4, 0]} barSize={compact ? 14 : 20} />
         </BarChart>
       </ResponsiveContainer>
 
@@ -58,7 +59,8 @@ export default function HorizontalBarChart({ data, compact = false }) {
         }
 
         .hbar-tooltip {
-          background: #1e2533;
+          background: var(--bg-tooltip);
+          border: var(--border-card);
           border-radius: 6px;
           padding: 8px 12px;
           display: flex;
@@ -72,7 +74,7 @@ export default function HorizontalBarChart({ data, compact = false }) {
         }
 
         .hbar-tooltip-value {
-          color: #fff;
+          color: var(--text-primary);
           font-size: 13px;
           font-weight: 500;
         }

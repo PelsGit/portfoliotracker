@@ -67,11 +67,11 @@ function BrokerIcon({ broker, size = 40 }) {
         width={size}
         height={size}
         alt={broker.label}
+        fetchpriority="low"
         style={{ borderRadius: 8, objectFit: 'contain' }}
       />
     );
   }
-  // Fallback for brokers without a known domain
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="40" height="40" rx="8" fill={broker.color} fillOpacity="0.15" />
@@ -209,14 +209,25 @@ export default function ImportCsv() {
     <div>
       <h1 className="page-title">Import Broker Actions</h1>
 
-      {/* Broker cards */}
-      <div className="broker-cards">
+      {/* Persistent live region for screen reader state announcements */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {loading && state === 'upload' ? 'Parsing file, please wait.' : ''}
+        {loading && state === 'preview' ? 'Importing transactions, please wait.' : ''}
+        {!loading && state === 'preview' ? `${transactions.length} transaction(s) ready to review.` : ''}
+        {state === 'confirmed' && result
+          ? `Import complete. ${result.imported} transaction(s) imported, ${result.skipped} skipped.`
+          : ''}
+      </div>
+
+      {/* Broker selector */}
+      <div role="group" aria-label="Select broker" className="broker-cards">
         {BROKERS.map((b) => (
           <button
             key={b.id}
             className={`broker-card${broker.id === b.id ? ' broker-card--active' : ''}`}
             onClick={() => handleBrokerChange(b)}
-            style={broker.id === b.id ? { borderColor: b.color } : {}}
+            aria-pressed={broker.id === b.id}
+            style={broker.id === b.id ? { '--broker-color': b.color } : {}}
           >
             <BrokerIcon broker={b} />
             <span className="broker-card-label">{b.label}</span>
@@ -234,14 +245,18 @@ export default function ImportCsv() {
         <ol className="guide-steps">
           {broker.steps.map((step, i) => (
             <li key={i} className="guide-step">
-              <span className="guide-step-num">{i + 1}</span>
+              <span className="guide-step-num" aria-hidden="true">{i + 1}</span>
               <span>{step}</span>
             </li>
           ))}
         </ol>
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && (
+        <div role="alert" aria-live="assertive" className="error-banner">
+          {error}
+        </div>
+      )}
 
       {state === 'upload' && (
         <div
@@ -261,23 +276,35 @@ export default function ImportCsv() {
               hidden
             />
           </label>
-          {loading && <p className="loading-text">Parsing...</p>}
+          {loading && (
+            <p role="status" aria-live="polite" className="loading-text">
+              Parsing…
+            </p>
+          )}
         </div>
       )}
 
       {state === 'preview' && (
         <div>
           <div className="preview-header">
-            <span>{transactions.length} transaction(s) found</span>
-            <div>
+            <span className="preview-count">{transactions.length} transaction(s) found</span>
+            <div className="preview-actions">
               <button className="btn-secondary" onClick={handleReset}>Cancel</button>
-              <button className="btn-primary" onClick={handleConfirm} disabled={loading}>
-                {loading ? 'Importing...' : 'Confirm Import'}
+              <button
+                className="btn-primary"
+                onClick={handleConfirm}
+                disabled={loading}
+                aria-busy={loading}
+              >
+                {loading ? 'Importing…' : 'Confirm Import'}
               </button>
             </div>
           </div>
           <div className="table-wrapper">
             <table className="data-table">
+              <caption className="sr-only">
+                Preview: {transactions.length} transaction(s) to import from {broker.label}
+              </caption>
               <thead>
                 <tr>
                   <th>Date</th>
@@ -294,11 +321,11 @@ export default function ImportCsv() {
                     <td>{new Date(txn.date).toLocaleDateString('nl-NL')}</td>
                     <td>{txn.product_name}</td>
                     <td className="text-muted">{txn.isin}</td>
-                    <td className={Number(txn.quantity) < 0 ? 'text-negative' : ''}>
+                    <td className={`num-cell${Number(txn.quantity) < 0 ? ' text-negative' : ''}`}>
                       {formatNumber(txn.quantity, 0)}
                     </td>
-                    <td>{formatCurrency(txn.price)}</td>
-                    <td className={Number(txn.total) < 0 ? 'text-negative' : 'text-positive'}>
+                    <td className="num-cell">{formatCurrency(txn.price)}</td>
+                    <td className={`num-cell${Number(txn.total) < 0 ? ' text-negative' : ' text-positive'}`}>
                       {formatCurrency(txn.total)}
                     </td>
                   </tr>
@@ -321,12 +348,13 @@ export default function ImportCsv() {
       <div className="history-section">
         <h2 className="history-title">All Imported Transactions</h2>
         {historyLoading ? (
-          <p className="text-muted">Loading...</p>
+          <p role="status" aria-live="polite" className="text-muted">Loading…</p>
         ) : history.length === 0 ? (
           <p className="text-muted">No transactions imported yet.</p>
         ) : (
           <div className="table-wrapper">
             <table className="data-table">
+              <caption className="sr-only">All imported transactions — {history.length} total</caption>
               <thead>
                 <tr>
                   <th>Date</th>
@@ -343,11 +371,11 @@ export default function ImportCsv() {
                     <td>{new Date(txn.date).toLocaleDateString('nl-NL')}</td>
                     <td>{txn.product_name}</td>
                     <td className="text-muted">{txn.isin}</td>
-                    <td className={Number(txn.quantity) < 0 ? 'text-negative' : ''}>
+                    <td className={`num-cell${Number(txn.quantity) < 0 ? ' text-negative' : ''}`}>
                       {formatNumber(txn.quantity, 0)}
                     </td>
-                    <td>{formatCurrency(txn.price)}</td>
-                    <td className={Number(txn.total) < 0 ? 'text-negative' : 'text-positive'}>
+                    <td className="num-cell">{formatCurrency(txn.price)}</td>
+                    <td className={`num-cell${Number(txn.total) < 0 ? ' text-negative' : ' text-positive'}`}>
                       {formatCurrency(txn.total)}
                     </td>
                   </tr>
@@ -360,8 +388,9 @@ export default function ImportCsv() {
 
       <style>{`
         .page-title {
-          font-size: 17px;
-          font-weight: 500;
+          font-size: var(--text-lg);
+          font-weight: 600;
+          letter-spacing: -0.2px;
           color: var(--text-primary);
           margin-bottom: calc(var(--spacing) * 3);
         }
@@ -370,6 +399,7 @@ export default function ImportCsv() {
           display: flex;
           gap: calc(var(--spacing) * 2);
           margin-bottom: calc(var(--spacing) * 3);
+          flex-wrap: wrap;
         }
 
         .broker-card {
@@ -378,7 +408,7 @@ export default function ImportCsv() {
           align-items: center;
           gap: var(--spacing);
           background: var(--bg-card);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: var(--border-card);
           border-radius: var(--radius);
           padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 4);
           cursor: pointer;
@@ -387,21 +417,22 @@ export default function ImportCsv() {
         }
 
         .broker-card:hover {
-          background: rgba(255, 255, 255, 0.03);
+          background: var(--bg-hover);
         }
 
         .broker-card--active {
-          background: rgba(255, 255, 255, 0.04);
+          background: var(--bg-hover);
+          border-color: var(--broker-color, var(--accent-blue));
         }
 
         .broker-card-label {
-          font-size: 13px;
+          font-size: var(--text-base);
           font-weight: 600;
           color: var(--text-primary);
         }
 
         .broker-card-type {
-          font-size: 10px;
+          font-size: var(--text-xs);
           color: var(--text-muted);
           text-transform: uppercase;
           letter-spacing: 0.5px;
@@ -409,7 +440,7 @@ export default function ImportCsv() {
 
         .guide-card {
           background: var(--bg-card);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: var(--border-card);
           border-radius: var(--radius);
           padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3);
           margin-bottom: calc(var(--spacing) * 3);
@@ -423,7 +454,7 @@ export default function ImportCsv() {
         }
 
         .guide-title {
-          font-size: 13px;
+          font-size: var(--text-base);
           font-weight: 500;
           color: var(--text-primary);
         }
@@ -439,7 +470,7 @@ export default function ImportCsv() {
           display: flex;
           align-items: center;
           gap: calc(var(--spacing) * 1.5);
-          font-size: 12px;
+          font-size: var(--text-sm);
           color: var(--text-secondary);
         }
 
@@ -450,9 +481,9 @@ export default function ImportCsv() {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: rgba(255, 255, 255, 0.06);
+          background: var(--bg-hover);
           color: var(--text-muted);
-          font-size: 11px;
+          font-size: var(--text-xs);
           font-weight: 600;
           flex-shrink: 0;
         }
@@ -463,34 +494,36 @@ export default function ImportCsv() {
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
           border-radius: var(--radius);
           margin-bottom: calc(var(--spacing) * 2);
-          font-size: 13px;
+          font-size: var(--text-base);
         }
 
         .drop-zone {
           background: var(--bg-card);
-          border: 2px dashed rgba(255, 255, 255, 0.12);
+          border: 2px dashed var(--border-subtle);
           border-radius: var(--radius);
           padding: calc(var(--spacing) * 8);
           text-align: center;
           color: var(--text-secondary);
           cursor: pointer;
           margin-bottom: calc(var(--spacing) * 4);
+          font-size: var(--text-base);
         }
 
         .drop-zone--active {
           border-color: var(--accent-blue);
-          background: rgba(108, 140, 255, 0.05);
+          background: color-mix(in srgb, var(--accent-blue) 5%, transparent);
         }
 
         .drop-zone-sub {
           margin: var(--spacing) 0;
           color: var(--text-muted);
-          font-size: 12px;
+          font-size: var(--text-sm);
         }
 
         .loading-text {
           margin-top: calc(var(--spacing) * 2);
           color: var(--accent-blue);
+          font-size: var(--text-base);
         }
 
         .preview-header {
@@ -498,10 +531,16 @@ export default function ImportCsv() {
           justify-content: space-between;
           align-items: center;
           margin-bottom: calc(var(--spacing) * 2);
-          color: var(--text-secondary);
+          gap: calc(var(--spacing) * 2);
+          flex-wrap: wrap;
         }
 
-        .preview-header div {
+        .preview-count {
+          color: var(--text-secondary);
+          font-size: var(--text-base);
+        }
+
+        .preview-actions {
           display: flex;
           gap: var(--spacing);
         }
@@ -512,8 +551,10 @@ export default function ImportCsv() {
           border: none;
           border-radius: var(--radius);
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3);
-          font-size: 13px;
+          font-size: var(--text-base);
+          font-family: var(--font-family);
           cursor: pointer;
+          transition: opacity 0.15s;
         }
 
         .btn-primary:hover { opacity: 0.9; }
@@ -522,18 +563,20 @@ export default function ImportCsv() {
         .btn-secondary {
           background: transparent;
           color: var(--text-secondary);
-          border: 1px solid rgba(255, 255, 255, 0.12);
+          border: 1px solid var(--border-subtle);
           border-radius: var(--radius);
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 3);
-          font-size: 13px;
+          font-size: var(--text-base);
+          font-family: var(--font-family);
           cursor: pointer;
+          transition: color 0.15s;
         }
 
         .btn-secondary:hover { color: var(--text-primary); }
 
         .table-wrapper {
           background: var(--bg-card);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: var(--border-card);
           border-radius: var(--radius);
           overflow-x: auto;
           margin-bottom: calc(var(--spacing) * 4);
@@ -547,21 +590,26 @@ export default function ImportCsv() {
         .data-table th {
           text-align: left;
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
-          font-size: 11px;
+          font-size: var(--text-xs);
+          font-weight: 500;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           color: var(--text-muted);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          border-bottom: 1px solid var(--border-subtle);
         }
 
         .data-table td {
           padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-          font-size: 13px;
+          border-bottom: 1px solid var(--border-row);
+          font-size: var(--text-base);
         }
 
         .data-table tr:last-child td {
           border-bottom: none;
+        }
+
+        .num-cell {
+          font-variant-numeric: tabular-nums;
         }
 
         .text-muted { color: var(--text-muted); }
@@ -570,7 +618,7 @@ export default function ImportCsv() {
 
         .success-card {
           background: var(--bg-card);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: var(--border-card);
           border-radius: var(--radius);
           padding: calc(var(--spacing) * 6);
           text-align: center;
@@ -578,14 +626,15 @@ export default function ImportCsv() {
         }
 
         .success-card h2 {
-          font-size: 17px;
-          font-weight: 500;
+          font-size: var(--text-lg);
+          font-weight: 600;
           margin-bottom: var(--spacing);
           color: var(--positive);
         }
 
         .success-card p {
           color: var(--text-secondary);
+          font-size: var(--text-base);
           margin-bottom: calc(var(--spacing) * 3);
         }
 
@@ -594,10 +643,44 @@ export default function ImportCsv() {
         }
 
         .history-title {
-          font-size: 14px;
+          font-size: var(--text-xs);
           font-weight: 500;
-          color: var(--text-primary);
+          text-transform: uppercase;
+          letter-spacing: 0.6px;
+          color: var(--text-muted);
           margin-bottom: calc(var(--spacing) * 2);
+        }
+
+        @media (max-width: 600px) {
+          .broker-card {
+            flex: 1 1 calc(50% - var(--spacing));
+            min-width: 0;
+          }
+
+          .btn-primary,
+          .btn-secondary {
+            min-height: 44px;
+            padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 2);
+          }
+
+          .drop-zone {
+            padding: calc(var(--spacing) * 5);
+          }
+
+          .preview-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .preview-actions {
+            width: 100%;
+          }
+
+          .preview-actions .btn-primary,
+          .preview-actions .btn-secondary {
+            flex: 1;
+            justify-content: center;
+          }
         }
       `}</style>
     </div>

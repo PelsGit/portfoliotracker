@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.models.earnings import EarningsDate
+from app.models.security_info import SecurityInfo
 from app.models.transaction import Transaction
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,8 @@ def get_earnings(db: Session) -> list[dict]:
         return []
 
     rows = (
-        db.query(EarningsDate)
+        db.query(EarningsDate, SecurityInfo.logo_url)
+        .outerjoin(SecurityInfo, SecurityInfo.isin == EarningsDate.isin)
         .filter(EarningsDate.isin.in_(list(holdings.keys())))
         .order_by(EarningsDate.earnings_date)
         .all()
@@ -89,6 +91,7 @@ def get_earnings(db: Session) -> list[dict]:
             "isin": r.isin,
             "product_name": r.product_name or holdings.get(r.isin, r.isin),
             "earnings_date": r.earnings_date.isoformat(),
+            "logo_url": logo_url,
         }
-        for r in rows
+        for r, logo_url in rows
     ]
