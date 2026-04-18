@@ -293,6 +293,34 @@ export default function Breakdown() {
       {activeTab === 'goals' && <GoalsTab breakdown={data} />}
 
       <style>{`
+        .tab-bar {
+          display: flex;
+          gap: 2px;
+          margin-bottom: calc(var(--spacing) * 3);
+        }
+
+        .tab-btn {
+          background: none;
+          border: none;
+          padding: 4px 0;
+          margin-right: calc(var(--spacing) * 2);
+          font-size: 17px;
+          font-weight: 500;
+          color: var(--text-muted);
+          cursor: pointer;
+          border-bottom: 2px solid transparent;
+          line-height: 1.4;
+        }
+
+        .tab-btn--active {
+          color: var(--text-primary);
+          border-bottom-color: var(--accent-blue, #6c8cff);
+        }
+
+        .tab-btn:hover:not(.tab-btn--active) {
+          color: var(--text-secondary);
+        }
+
         .page-title {
           font-size: 17px;
           font-weight: 500;
