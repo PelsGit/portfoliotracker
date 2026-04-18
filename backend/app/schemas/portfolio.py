@@ -18,6 +18,9 @@ class HoldingOut(BaseModel):
     logo_url: str | None = None
     is_cash: bool = False
 
+    currency: str = "EUR"
+    current_price_local: Decimal | None = None
+
     total_invested: Decimal = Decimal(0)
     realised_pnl: Decimal = Decimal(0)
     realised_pnl_pct: Decimal | None = None

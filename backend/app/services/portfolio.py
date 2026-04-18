@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import date
 from decimal import Decimal
 
@@ -11,11 +12,27 @@ from app.models.security_info import SecurityInfo
 from app.models.transaction import Transaction
 from app.schemas.portfolio import HoldingOut, PortfolioSummaryOut
 
+FX_ISIN_EURUSD = "EURUSD=X"
+FX_ISIN_GBPEUR = "GBPEUR=X"
+
 
 def _to_decimal(value) -> Decimal:
     if value is None:
         return Decimal(0)
     return Decimal(str(value))
+
+
+def _latest_price(db: Session, isin: str) -> Decimal | None:
+    row = db.query(Price.close_price).filter(Price.isin == isin).order_by(Price.date.desc()).first()
+    return _to_decimal(row[0]) if row and row[0] else None
+
+
+def _eur_to_local(eur_price: Decimal, currency: str, eurusd: Decimal, gbpeur: Decimal) -> Decimal:
+    if currency == "USD":
+        return eur_price * eurusd
+    if currency in ("GBP", "GBp"):
+        return eur_price / gbpeur
+    return eur_price
 
 
 def _holding_period_days(first_buy_date) -> int | None:
@@ -60,6 +77,19 @@ def get_holdings(db: Session) -> list[HoldingOut]:
     # Aggregate dividends per ISIN
     dividend_rows = db.query(Dividend.isin, func.sum(Dividend.amount_eur).label("total")).group_by(Dividend.isin).all()
     dividend_map: dict[str, Decimal] = {row.isin: _to_decimal(row.total) for row in dividend_rows}
+
+    # Current FX rates for local-currency price display
+    eurusd_rate = _latest_price(db, FX_ISIN_EURUSD) or Decimal(1)
+    gbpeur_rate = _latest_price(db, FX_ISIN_GBPEUR) or Decimal(1)
+
+    # Determine native currency per ISIN from buy transactions
+    isin_currency: dict[str, str] = {}
+    for isin, txns in by_isin.items():
+        buys = [t for t in txns if _to_decimal(t.quantity) > 0 and t.local_currency]
+        if buys:
+            isin_currency[isin] = Counter(t.local_currency for t in buys).most_common(1)[0][0]
+        else:
+            isin_currency[isin] = "EUR"
 
     holdings = []
     for isin, txns in by_isin.items():
@@ -122,6 +152,14 @@ def get_holdings(db: Session) -> list[HoldingOut]:
         most_recent = max(txns, key=lambda t: t.date)
         si = security_info_map.get(isin)
 
+        native_currency = isin_currency.get(isin, "EUR")
+        # Normalize GBp (pence) to GBP for display
+        display_currency = "GBP" if native_currency == "GBp" else native_currency
+        current_price_local = (
+            _eur_to_local(current_price, native_currency, eurusd_rate, gbpeur_rate)
+            if current_price is not None else None
+        )
+
         holdings.append(HoldingOut(
             isin=isin,
             product_name=most_recent.product_name,
@@ -134,6 +172,8 @@ def get_holdings(db: Session) -> list[HoldingOut]:
             return_pct=return_pct,
             weight=None,
             logo_url=si.logo_url if si else None,
+            currency=display_currency,
+            current_price_local=current_price_local,
             total_invested=total_invested,
             realised_pnl=realised_pnl,
             realised_pnl_pct=realised_pnl_pct,

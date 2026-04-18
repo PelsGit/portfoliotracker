@@ -4,7 +4,7 @@ import { formatCurrency, formatNumber, formatPercent } from '../utils/format';
 
 const ALL_COLUMNS = [
   { id: 'value',           key: 'value',               label: 'Portfolio worth',    align: 'right', type: 'currency' },
-  { id: 'current_price',   key: 'current_price',        label: 'Current price',      align: 'right', type: 'currency' },
+  { id: 'current_price',   key: 'current_price_local',  label: 'Current price',      align: 'right', type: 'local_price' },
   { id: 'shares',          key: 'shares',               label: 'Shares',             align: 'right', type: 'shares' },
   { id: 'cost_basis',      key: 'cost_basis',           label: 'Total invested',      align: 'right', type: 'currency' },
   { id: 'avg_cost',        key: 'avg_cost',             label: 'Avg price',          align: 'right', type: 'currency' },
@@ -38,12 +38,13 @@ function formatCell(col, value, holding) {
   }
   if (value == null) return '—';
   switch (col.type) {
-    case 'currency':  return formatCurrency(value);
-    case 'shares':    return formatNumber(value, 4);
-    case 'period':    return formatPeriod(value);
-    case 'pnl':       return <PnlCell value={value} />;
-    case 'pct_badge': return <PctBadge value={value} />;
-    default:          return value;
+    case 'currency':    return formatCurrency(value);
+    case 'local_price': return formatCurrency(value, holding.currency || 'EUR');
+    case 'shares':      return formatNumber(value, 4);
+    case 'period':      return formatPeriod(value);
+    case 'pnl':         return <PnlCell value={value} />;
+    case 'pct_badge':   return <PctBadge value={value} />;
+    default:            return value;
   }
 }
 
